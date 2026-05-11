@@ -28,9 +28,12 @@ public class RouteService {
     private final RouteRepository routeRepository;
     private final RoutingRuleRepository routingRuleRepository;
 
+    private static final String ROUTE_NOT_FOUND = "Route not found";
+    private static final String ROUTE_NAME_EXISTS = "Route name already exists";
+
     public RouteResponse createRoute(CreateRouteRequest createRouteRequest) {
         if (routeRepository.existsByName(createRouteRequest.getName())) {
-            throw new ValidationException("Route name already exists");
+            throw new ValidationException(ROUTE_NAME_EXISTS);
         }
             Route route = Route.builder()
                 .name(createRouteRequest.getName())
@@ -73,17 +76,17 @@ public class RouteService {
     @Transactional(readOnly = true)
     public RouteResponse getRoute(UUID routeId) {
         Route route = routeRepository.findById(routeId)
-                .orElseThrow(() -> new ResourceNotFoundException("Route not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(ROUTE_NOT_FOUND));
         return routeResponseBuilder(route,routingRuleRepository.findByRouteIdOrderByPriorityAsc(routeId));
     }
 
     public RouteResponse updateRoute(UUID routeId, UpdateRouteRequest updateRouteRequest) {
         Route route = routeRepository.findById(routeId)
-                .orElseThrow(() -> new ResourceNotFoundException("Route not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(ROUTE_NOT_FOUND));
 
         Optional<Route> savedRoute = routeRepository.findByName(updateRouteRequest.getName());
         if(savedRoute.isPresent() && !savedRoute.get().getId().equals(route.getId())) {
-            throw new ValidationException("Route name already exists");
+            throw new ValidationException(ROUTE_NAME_EXISTS);
         }
 
         Route updatedRoute = route.toBuilder()
@@ -104,7 +107,7 @@ public class RouteService {
 
     public void deleteRoute(UUID routeId) {
         routeRepository.delete(routeRepository.findById(routeId)
-                .orElseThrow(() -> new ResourceNotFoundException("Route not found")));
+                .orElseThrow(() -> new ResourceNotFoundException(ROUTE_NOT_FOUND)));
     }
 
     private RouteResponse routeResponseBuilder(Route route, List<RoutingRule> routingRules) {

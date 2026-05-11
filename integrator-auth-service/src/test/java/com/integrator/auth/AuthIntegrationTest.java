@@ -36,7 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-public class AuthIntegrationTest {
+class AuthIntegrationTest {
     @Container
     static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:latest")
             .withDatabaseName("integrator")
