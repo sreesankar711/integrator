@@ -16,20 +16,16 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request,  HttpServletResponse response, FilterChain filterChain)
                                     throws ServletException, IOException {
-        String correlationId = request.getHeader(CorrelationConstants.CORRELATION_ID_HEADER);
-
-        if (correlationId == null || correlationId.isBlank()) {
-            correlationId = UUID.randomUUID().toString();
-        }
-
+        String correlationId = UUID.randomUUID().toString();
+        String xCorrelationId = request.getHeader(CorrelationConstants.CORRELATION_ID_HEADER);
         MDC.put(CorrelationConstants.MDC_CORRELATION_ID_KEY, correlationId);
-
-        response.setHeader(CorrelationConstants.CORRELATION_ID_HEADER, correlationId);
-
+        MDC.put(CorrelationConstants.CORRELATION_ID_HEADER, xCorrelationId);
+        response.setHeader(CorrelationConstants.CORRELATION_ID_HEADER, xCorrelationId);
         try {
             filterChain.doFilter(request, response);
         } finally {
             MDC.remove(CorrelationConstants.MDC_CORRELATION_ID_KEY);
+            MDC.remove(CorrelationConstants.CORRELATION_ID_HEADER);
         }
     }
 }
