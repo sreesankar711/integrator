@@ -1,0 +1,496 @@
+package com.integrator.route;
+
+import com.integrator.common.api.ApiResponse;
+import com.integrator.common.api.PagedResponse;
+import com.integrator.route.dto.CreateRouteRequest;
+import com.integrator.route.dto.RouteResponse;
+import com.integrator.route.dto.UpdateRouteRequest;
+import com.integrator.route.model.Route;
+import com.integrator.route.model.TransformType;
+import com.integrator.route.repository.RouteRepository;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.RequestMethod;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+public class RouteIntegrationTest extends AbstractContainerBaseTest {
+    @Autowired
+    private RouteRepository routeRepository;
+
+    @Test
+    @Order(1)
+    @DisplayName("Return Success when route is created successfully")
+    void createRouteSuccess() {
+        CreateRouteRequest createRouteRequest = createRouteRequestBody("route1");
+        ResponseEntity<ApiResponse<RouteResponse>> response = restTemplate.exchange(
+                "http://localhost:" + port + "/routes",
+                HttpMethod.POST,
+                new HttpEntity<>(createRouteRequest),
+                new ParameterizedTypeReference<>() {}
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().isSuccess()).isTrue();
+        assertThat(response.getBody().getCorrelationId()).isNotNull();
+        assertThat(response.getBody().getTimestamp()).isNotNull();
+        assertThat(response.getBody().getData()).isNotNull();
+        assertThat(response.getBody().getData().getRoutingRules()).isEmpty();
+        compareRoute(response.getBody().getData(), createRouteRequest);
+
+        Optional<Route> savedRoute = routeRepository.findByName(createRouteRequest.getName());
+        assertThat(savedRoute).isPresent();
+        assertThat(response.getBody().getData().getId()).isEqualTo(savedRoute.get().getId());
+        compareRoute(savedRoute.get(), createRouteRequest);
+    }
+
+    @Test
+    @Order(2)
+    @DisplayName("Return Failure when routeName is duplicate")
+    void createRouteFailureDuplicateName() {
+        CreateRouteRequest createRouteRequest = new CreateRouteRequest();
+        createRouteRequest.setName("route1");
+        createRouteRequest.setDescription("route1");
+        createRouteRequest.setPathPattern("/path/**");
+        createRouteRequest.setHttpMethod(RequestMethod.GET);
+        createRouteRequest.setTargetUrl("http://route-service");
+        createRouteRequest.setTransformType(TransformType.NONE);
+        createRouteRequest.setEnabled(true);
+
+        ResponseEntity<ApiResponse<RouteResponse>> response = restTemplate.exchange(
+                "http://localhost:" + port + "/routes",
+                HttpMethod.POST,
+                new HttpEntity<>(createRouteRequest),
+                new ParameterizedTypeReference<>() {}
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().isSuccess()).isFalse();
+        assertThat(response.getBody().getCorrelationId()).isNotNull();
+        assertThat(response.getBody().getTimestamp()).isNotNull();
+        assertThat(response.getBody().getData()).isNull();
+        assertThat(response.getBody().getMessage()).isEqualTo("Route name already exists");
+    }
+
+    @Test
+    @Order(3)
+    @DisplayName("Return Failure when requestBody validation fails")
+    void createRouteFailureRequestBodyValidationFails() {
+        CreateRouteRequest createRouteRequest = new CreateRouteRequest();
+
+        ResponseEntity<ApiResponse<Map<String, String>>> response = restTemplate.exchange(
+                "http://localhost:" + port + "/routes",
+                HttpMethod.POST,
+                new HttpEntity<>(createRouteRequest),
+                new ParameterizedTypeReference<>() {}
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().isSuccess()).isFalse();
+        assertThat(response.getBody().getCorrelationId()).isNotNull();
+        assertThat(response.getBody().getTimestamp()).isNotNull();
+        assertThat(response.getBody().getData()).isNotNull();
+        assertThat(response.getBody().getData().get("name")).isEqualTo("must not be blank");
+        assertThat(response.getBody().getData().get("pathPattern")).isEqualTo("must not be blank");
+        assertThat(response.getBody().getData().get("transformType")).isEqualTo("must not be null");
+        assertThat(response.getBody().getData().get("httpMethod")).isEqualTo("must not be null");
+        assertThat(response.getBody().getData().get("targetUrl")).isEqualTo("must not be blank");
+        assertThat(response.getBody().getData().get("enabled")).isEqualTo("must not be null");
+        assertThat(response.getBody().getMessage()).isEqualTo("Validation failed");
+    }
+
+    @Test
+    @Order(4)
+    @DisplayName("Return Success when all Routes are fetched")
+    void getRoutesSuccess() {
+        CreateRouteRequest createRouteRequest = createRouteRequestBody("route2");
+        restTemplate.exchange(
+                "http://localhost:" + port + "/routes",
+                HttpMethod.POST,
+                new HttpEntity<>(createRouteRequest),
+                new ParameterizedTypeReference<>() {}
+        );
+
+        ResponseEntity<ApiResponse<List<RouteResponse>>> response = restTemplate.exchange(
+                "http://localhost:" + port + "/routes",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {}
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().isSuccess()).isTrue();
+        assertThat(response.getBody().getCorrelationId()).isNotNull();
+        assertThat(response.getBody().getTimestamp()).isNotNull();
+        assertThat(response.getBody().getData()).isNotNull();
+        assertThat(response.getBody().getData().size()).isEqualTo(2);
+
+        Optional<Route> savedRoute = routeRepository.findByName("route1");
+        assertThat(savedRoute).isPresent();
+        Optional<RouteResponse> routeResponse = response.getBody().getData()
+                .stream()
+                .filter(route -> route.getName().equals("route1"))
+                .findFirst();
+        assertThat(routeResponse).isPresent();
+        compareRoute(routeResponse.get(), savedRoute.get());
+    }
+
+    @Test
+    @Order(5)
+    @DisplayName("Return Success when all Routes are fetched in paged")
+    void getPagedRoutesSuccess() {
+        int page = 0;
+        int size = 1;
+        ResponseEntity<PagedResponse<RouteResponse>> response = restTemplate.exchange(
+                "http://localhost:" + port + "/routes?page=" + page + "&size=" + size,
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {}
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().isSuccess()).isTrue();
+        assertThat(response.getBody().getCorrelationId()).isNotNull();
+        assertThat(response.getBody().getTimestamp()).isNotNull();
+
+        int numRoutes = routeRepository.findAll().size();
+        assertThat(response.getBody().getPageNumber()).isEqualTo(page);
+        assertThat(response.getBody().getPageSize()).isEqualTo(size);
+        assertThat(response.getBody().getTotalElements()).isEqualTo(numRoutes);
+        assertThat(response.getBody().getTotalPages()).isEqualTo(2);
+        assertThat(response.getBody().isLast()).isFalse();
+        assertThat(response.getBody().getData()).isNotNull();
+
+        String routeName = response.getBody().getData().getFirst().getName();
+        Optional<Route> savedRoute = routeRepository.findByName(routeName);
+        assertThat(savedRoute).isPresent();
+        compareRoute(response.getBody().getData().getFirst(), savedRoute.get());
+    }
+
+    @Test
+    @Order(6)
+    @DisplayName("Return Success when Route is fetched by id successfully")
+    void getRouteByIdSuccess() {
+        CreateRouteRequest createRouteRequest = createRouteRequestBody("route3");
+        ResponseEntity<ApiResponse<RouteResponse>> response = restTemplate.exchange(
+                "http://localhost:" + port + "/routes",
+                HttpMethod.POST,
+                new HttpEntity<>(createRouteRequest),
+                new ParameterizedTypeReference<>() {}
+        );
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getData()).isNotNull();
+
+        ResponseEntity<ApiResponse<RouteResponse>> routeResponse = restTemplate.exchange(
+                "http://localhost:" + port + "/routes/" + response.getBody().getData().getId(),
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {}
+        );
+        assertThat(routeResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(routeResponse.getBody()).isNotNull();
+        assertThat(routeResponse.getBody().isSuccess()).isTrue();
+        assertThat(routeResponse.getBody().getCorrelationId()).isNotNull();
+        assertThat(routeResponse.getBody().getTimestamp()).isNotNull();
+        assertThat(routeResponse.getBody().getData()).isNotNull();
+        assertThat(routeResponse.getBody().getData()).isEqualTo(response.getBody().getData());
+    }
+
+    @Test
+    @Order(7)
+    @DisplayName("Return Failure when routeId does not exist")
+    void getRouteByIdFailureRouteIdDoesNotExist() {
+        ResponseEntity<ApiResponse<RouteResponse>> routeResponse = restTemplate.exchange(
+                "http://localhost:" + port + "/routes/" + UUID.randomUUID().toString(),
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {}
+        );
+        assertThat(routeResponse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(routeResponse.getBody()).isNotNull();
+        assertThat(routeResponse.getBody().isSuccess()).isFalse();
+        assertThat(routeResponse.getBody().getCorrelationId()).isNotNull();
+        assertThat(routeResponse.getBody().getTimestamp()).isNotNull();
+        assertThat(routeResponse.getBody().getData()).isNull();
+        assertThat(routeResponse.getBody().getMessage()).isEqualTo("Route not found");
+    }
+
+    @Test
+    @Order(8)
+    @DisplayName("Return Failure when routeId is invalid")
+    void getRouteByIdFailureRouteIdIsInvalid() {
+        ResponseEntity<ApiResponse<RouteResponse>> routeResponse = restTemplate.exchange(
+                "http://localhost:" + port + "/routes/invalid-routeId",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {}
+        );
+        assertThat(routeResponse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(routeResponse.getBody()).isNotNull();
+        assertThat(routeResponse.getBody().isSuccess()).isFalse();
+        assertThat(routeResponse.getBody().getCorrelationId()).isNotNull();
+        assertThat(routeResponse.getBody().getTimestamp()).isNotNull();
+        assertThat(routeResponse.getBody().getData()).isNull();
+        assertThat(routeResponse.getBody().getMessage()).isEqualTo("Route not found");
+    }
+
+    @Test
+    @Order(9)
+    @DisplayName("Return Success when route is updated")
+    void updateRouteSuccess() {
+        Optional<Route> routeForId = routeRepository.findByName("route2");
+        assertThat(routeForId).isPresent();
+        UUID id = routeForId.get().getId();
+
+        UpdateRouteRequest updateRouteRequest = new UpdateRouteRequest();
+        updateRouteRequest.setName("route5");
+        updateRouteRequest.setDescription("route5");
+        updateRouteRequest.setPathPattern("/new/path");
+        updateRouteRequest.setTargetUrl("https://example.com/new/url");
+        updateRouteRequest.setHttpMethod(RequestMethod.DELETE);
+        updateRouteRequest.setEnabled(Boolean.FALSE);
+        updateRouteRequest.setTransformType(TransformType.NONE);
+
+        ResponseEntity<ApiResponse<RouteResponse>> routeResponse = restTemplate.exchange(
+                "http://localhost:" + port + "/routes/" + id,
+                HttpMethod.PUT,
+                new HttpEntity<>(updateRouteRequest),
+                new ParameterizedTypeReference<>() {}
+        );
+        assertThat(routeResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(routeResponse.getBody()).isNotNull();
+        assertThat(routeResponse.getBody().isSuccess()).isTrue();
+        assertThat(routeResponse.getBody().getCorrelationId()).isNotNull();
+        assertThat(routeResponse.getBody().getTimestamp()).isNotNull();
+        assertThat(routeResponse.getBody().getData()).isNotNull();
+
+        assertThat(routeResponse.getBody().getData().getName()).isEqualTo(updateRouteRequest.getName());
+        assertThat(routeResponse.getBody().getData().getDescription()).isEqualTo(updateRouteRequest.getDescription());
+        assertThat(routeResponse.getBody().getData().getPathPattern()).isEqualTo(updateRouteRequest.getPathPattern());
+        assertThat(routeResponse.getBody().getData().getTargetUrl()).isEqualTo(updateRouteRequest.getTargetUrl());
+        assertThat(routeResponse.getBody().getData().getHttpMethod()).isEqualTo(updateRouteRequest.getHttpMethod());
+        assertThat(routeResponse.getBody().getData().isEnabled()).isEqualTo(updateRouteRequest.getEnabled());
+        assertThat(routeResponse.getBody().getData().getTransformType()).isEqualTo(updateRouteRequest.getTransformType());
+
+        Optional<Route> savedRoute = routeRepository.findByName(updateRouteRequest.getName());
+        assertThat(savedRoute).isPresent();
+        Route route = savedRoute.get();
+        compareRoute(routeResponse.getBody().getData(), route);
+    }
+
+    @Test
+    @Order(10)
+    @DisplayName("Return Failure when routeName already exists")
+    void updateRouteFailureRouteNameAlreadyExists() {
+        Optional<Route> routeForId = routeRepository.findByName("route5");
+        assertThat(routeForId).isPresent();
+        UUID id = routeForId.get().getId();
+
+        assertThat(routeRepository.findByName("route1")).isPresent();
+        UpdateRouteRequest updateRouteRequest = new UpdateRouteRequest();
+        updateRouteRequest.setName("route1");
+        updateRouteRequest.setDescription("duplicate route name");
+        updateRouteRequest.setPathPattern("/new/path");
+        updateRouteRequest.setTargetUrl("https://example.com/new/url");
+        updateRouteRequest.setHttpMethod(RequestMethod.DELETE);
+        updateRouteRequest.setEnabled(Boolean.FALSE);
+        updateRouteRequest.setTransformType(TransformType.NONE);
+
+        ResponseEntity<ApiResponse<RouteResponse>> routeResponse = restTemplate.exchange(
+                "http://localhost:" + port + "/routes/" + id,
+                HttpMethod.PUT,
+                new HttpEntity<>(updateRouteRequest),
+                new ParameterizedTypeReference<>() {}
+        );
+        assertThat(routeResponse.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
+        assertThat(routeResponse.getBody()).isNotNull();
+        assertThat(routeResponse.getBody().isSuccess()).isFalse();
+        assertThat(routeResponse.getBody().getCorrelationId()).isNotNull();
+        assertThat(routeResponse.getBody().getTimestamp()).isNotNull();
+        assertThat(routeResponse.getBody().getData()).isNull();
+        assertThat(routeResponse.getBody().getMessage()).isEqualTo("Route name already exists");
+    }
+
+    @Test
+    @Order(11)
+    @DisplayName("Return Failure in updateRoute when routeId is invalid")
+    void updateRouteFailureRouteIdIsInvalid() {
+        UpdateRouteRequest updateRouteRequest = new UpdateRouteRequest();
+        updateRouteRequest.setName("route5");
+        updateRouteRequest.setDescription("route5");
+        updateRouteRequest.setPathPattern("/new/path");
+        updateRouteRequest.setTargetUrl("https://example.com/new/url");
+        updateRouteRequest.setHttpMethod(RequestMethod.DELETE);
+        updateRouteRequest.setEnabled(Boolean.FALSE);
+        updateRouteRequest.setTransformType(TransformType.NONE);
+
+        ResponseEntity<ApiResponse<RouteResponse>> routeResponse = restTemplate.exchange(
+                "http://localhost:" + port + "/routes/invalid-routeId",
+                HttpMethod.PUT,
+                new HttpEntity<>(updateRouteRequest),
+                new ParameterizedTypeReference<>() {}
+        );
+        assertThat(routeResponse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(routeResponse.getBody()).isNotNull();
+        assertThat(routeResponse.getBody().isSuccess()).isFalse();
+        assertThat(routeResponse.getBody().getCorrelationId()).isNotNull();
+        assertThat(routeResponse.getBody().getTimestamp()).isNotNull();
+        assertThat(routeResponse.getBody().getData()).isNull();
+        assertThat(routeResponse.getBody().getMessage()).isEqualTo("Route not found");
+    }
+
+    @Test
+    @Order(12)
+    @DisplayName("Return Failure in updateRoute when route is not found")
+    void updateRouteFailureRouteIdNotFound() {
+        UpdateRouteRequest updateRouteRequest = new UpdateRouteRequest();
+        updateRouteRequest.setName("updateFail");
+        updateRouteRequest.setDescription("updateFail");
+        updateRouteRequest.setPathPattern("/new/path");
+        updateRouteRequest.setTargetUrl("https://example.com/new/url");
+        updateRouteRequest.setHttpMethod(RequestMethod.DELETE);
+        updateRouteRequest.setEnabled(Boolean.FALSE);
+        updateRouteRequest.setTransformType(TransformType.NONE);
+
+        ResponseEntity<ApiResponse<RouteResponse>> routeResponse = restTemplate.exchange(
+                "http://localhost:" + port + "/routes/" + UUID.randomUUID(),
+                HttpMethod.PUT,
+                new HttpEntity<>(updateRouteRequest),
+                new ParameterizedTypeReference<>() {}
+        );
+        assertThat(routeResponse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(routeResponse.getBody()).isNotNull();
+        assertThat(routeResponse.getBody().isSuccess()).isFalse();
+        assertThat(routeResponse.getBody().getCorrelationId()).isNotNull();
+        assertThat(routeResponse.getBody().getTimestamp()).isNotNull();
+        assertThat(routeResponse.getBody().getData()).isNull();
+        assertThat(routeResponse.getBody().getMessage()).isEqualTo("Route not found");
+    }
+
+    @Test
+    @Order(13)
+    @DisplayName("Return Success when route is deleted")
+    void deleteRouteSuccess() {
+        Optional<Route> routeForId = routeRepository.findByName("route5");
+        assertThat(routeForId).isPresent();
+        UUID id = routeForId.get().getId();
+
+        ResponseEntity<ApiResponse<RouteResponse>> routeResponse = restTemplate.exchange(
+                "http://localhost:" + port + "/routes/" + id,
+                HttpMethod.DELETE,
+                null,
+                new ParameterizedTypeReference<>() {}
+        );
+        assertThat(routeResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(routeResponse.getBody()).isNotNull();
+        assertThat(routeResponse.getBody().isSuccess()).isTrue();
+        assertThat(routeResponse.getBody().getCorrelationId()).isNotNull();
+        assertThat(routeResponse.getBody().getTimestamp()).isNotNull();
+        assertThat(routeResponse.getBody().getData()).isNull();
+
+        Optional<Route> savedRoute = routeRepository.findById(id);
+        assertThat(savedRoute).isNotPresent();
+    }
+
+    @Test
+    @Order(14)
+    @DisplayName("Return Failure in deleteRoute when routeId is invalid")
+    void deleteRouteFailureRouteIdIsInvalid() {
+        ResponseEntity<ApiResponse<RouteResponse>> routeResponse = restTemplate.exchange(
+                "http://localhost:" + port + "/routes/invalid-routeId",
+                HttpMethod.DELETE,
+                null,
+                new ParameterizedTypeReference<>() {}
+        );
+        assertThat(routeResponse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(routeResponse.getBody()).isNotNull();
+        assertThat(routeResponse.getBody().isSuccess()).isFalse();
+        assertThat(routeResponse.getBody().getCorrelationId()).isNotNull();
+        assertThat(routeResponse.getBody().getTimestamp()).isNotNull();
+        assertThat(routeResponse.getBody().getData()).isNull();
+        assertThat(routeResponse.getBody().getMessage()).isEqualTo("Route not found");
+    }
+
+    @Test
+    @Order(15)
+    @DisplayName("Return Failure in deleteRoute when routeId not found")
+    void deleteRouteFailureRouteIdNotFound() {
+        UUID id = UUID.randomUUID();
+        ResponseEntity<ApiResponse<RouteResponse>> routeResponse = restTemplate.exchange(
+                "http://localhost:" + port + "/routes/" + id,
+                HttpMethod.DELETE,
+                null,
+                new ParameterizedTypeReference<>() {}
+        );
+        assertThat(routeResponse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(routeResponse.getBody()).isNotNull();
+        assertThat(routeResponse.getBody().isSuccess()).isFalse();
+        assertThat(routeResponse.getBody().getCorrelationId()).isNotNull();
+        assertThat(routeResponse.getBody().getTimestamp()).isNotNull();
+        assertThat(routeResponse.getBody().getData()).isNull();
+        assertThat(routeResponse.getBody().getMessage()).isEqualTo("Route not found");
+    }
+
+    private void compareRoute(Route route, CreateRouteRequest createRouteRequest) {
+        assertThat(route.getName()).isEqualTo(createRouteRequest.getName());
+        assertThat(route.getDescription()).isEqualTo(createRouteRequest.getDescription());
+        assertThat(route.getPathPattern()).isEqualTo(createRouteRequest.getPathPattern());
+        assertThat(route.getHttpMethod()).isEqualTo(createRouteRequest.getHttpMethod());
+        assertThat(route.getTargetUrl()).isEqualTo(createRouteRequest.getTargetUrl());
+        assertThat(route.getTransformType()).isEqualTo(createRouteRequest.getTransformType());
+        assertThat(route.isEnabled()).isEqualTo(createRouteRequest.getEnabled());
+    }
+
+    private void compareRoute(RouteResponse routeResponse, CreateRouteRequest createRouteRequest) {
+        assertThat(routeResponse.getName()).isEqualTo(createRouteRequest.getName());
+        assertThat(routeResponse.getDescription()).isEqualTo(createRouteRequest.getDescription());
+        assertThat(routeResponse.getPathPattern()).isEqualTo(createRouteRequest.getPathPattern());
+        assertThat(routeResponse.getHttpMethod()).isEqualTo(createRouteRequest.getHttpMethod());
+        assertThat(routeResponse.getTargetUrl()).isEqualTo(createRouteRequest.getTargetUrl());
+        assertThat(routeResponse.getTransformType()).isEqualTo(createRouteRequest.getTransformType());
+        assertThat(routeResponse.isEnabled()).isEqualTo(createRouteRequest.getEnabled());
+    }
+
+    private void compareRoute(RouteResponse routeResponse, Route route) {
+        assertThat(routeResponse.getName()).isEqualTo(route.getName());
+        assertThat(routeResponse.getDescription()).isEqualTo(route.getDescription());
+        assertThat(routeResponse.getPathPattern()).isEqualTo(route.getPathPattern());
+        assertThat(routeResponse.getHttpMethod()).isEqualTo(route.getHttpMethod());
+        assertThat(routeResponse.getTargetUrl()).isEqualTo(route.getTargetUrl());
+        assertThat(routeResponse.getTransformType()).isEqualTo(route.getTransformType());
+        assertThat(routeResponse.isEnabled()).isEqualTo(route.isEnabled());
+        assertThat(routeResponse.getCreatedAt()).isEqualTo(route.getCreatedAt());
+        assertThat(routeResponse.getUpdatedAt()).isEqualTo(route.getUpdatedAt());
+    }
+
+    private CreateRouteRequest createRouteRequestBody(String name) {
+        CreateRouteRequest createRouteRequest = new CreateRouteRequest();
+        createRouteRequest.setName(name);
+        createRouteRequest.setDescription("description");
+        createRouteRequest.setPathPattern("/path/**");
+        createRouteRequest.setHttpMethod(RequestMethod.GET);
+        createRouteRequest.setTargetUrl("http://route-service");
+        createRouteRequest.setTransformType(TransformType.NONE);
+        createRouteRequest.setEnabled(true);
+
+        return createRouteRequest;
+    }
+}
