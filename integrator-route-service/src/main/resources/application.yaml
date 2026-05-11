@@ -1,0 +1,41 @@
+server:
+  port: 8082
+  shutdown: graceful
+
+spring:
+  config:
+    import: "optional:file:.env[.properties],optional:file:../.env[.properties]"
+  application:
+    name: integrator-route-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/integrator?currentSchema=route
+    username: ${ROUTE_DB_USERNAME}
+    password: ${ROUTE_DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+    jpa:
+      hibernate:
+        ddl-auto: validate
+      properties:
+        hibernate:
+          default_schema: route
+      show-sql: false
+      open-in-view: false
+    flyway:
+      enabled: true
+      schemas: route
+      locations: classpath:db/migration
+    lifecycle:
+      timeout-per-shutdown-phase: 30s
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
