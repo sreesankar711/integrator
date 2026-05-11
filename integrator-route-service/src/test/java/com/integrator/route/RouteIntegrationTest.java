@@ -26,7 +26,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class RouteIntegrationTest extends AbstractContainerBaseTest {
+class RouteIntegrationTest extends AbstractContainerBaseTest {
     @Autowired
     private RouteRepository routeRepository;
 
@@ -105,12 +105,12 @@ public class RouteIntegrationTest extends AbstractContainerBaseTest {
         assertThat(response.getBody().getCorrelationId()).isNotNull();
         assertThat(response.getBody().getTimestamp()).isNotNull();
         assertThat(response.getBody().getData()).isNotNull();
-        assertThat(response.getBody().getData().get("name")).isEqualTo("must not be blank");
-        assertThat(response.getBody().getData().get("pathPattern")).isEqualTo("must not be blank");
-        assertThat(response.getBody().getData().get("transformType")).isEqualTo("must not be null");
-        assertThat(response.getBody().getData().get("httpMethod")).isEqualTo("must not be null");
-        assertThat(response.getBody().getData().get("targetUrl")).isEqualTo("must not be blank");
-        assertThat(response.getBody().getData().get("enabled")).isEqualTo("must not be null");
+        assertThat(response.getBody().getData()).containsEntry("name", "must not be blank");
+        assertThat(response.getBody().getData()).containsEntry("pathPattern", "must not be blank");
+        assertThat(response.getBody().getData()).containsEntry("transformType", "must not be null");
+        assertThat(response.getBody().getData()).containsEntry("httpMethod", "must not be null");
+        assertThat(response.getBody().getData()).containsEntry("targetUrl", "must not be blank");
+        assertThat(response.getBody().getData()).containsEntry("enabled", "must not be null");
         assertThat(response.getBody().getMessage()).isEqualTo("Validation failed");
     }
 
@@ -139,7 +139,7 @@ public class RouteIntegrationTest extends AbstractContainerBaseTest {
         assertThat(response.getBody().getCorrelationId()).isNotNull();
         assertThat(response.getBody().getTimestamp()).isNotNull();
         assertThat(response.getBody().getData()).isNotNull();
-        assertThat(response.getBody().getData().size()).isEqualTo(2);
+        assertThat(response.getBody().getData()).hasSize(2);
 
         Optional<Route> savedRoute = routeRepository.findByName("route1");
         assertThat(savedRoute).isPresent();

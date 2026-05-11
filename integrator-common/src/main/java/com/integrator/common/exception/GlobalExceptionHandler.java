@@ -32,7 +32,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(UpstreamException.class)
-    public ResponseEntity<ApiResponse<Void>> UpstreamException(UpstreamException ex) {
+    public ResponseEntity<ApiResponse<Void>> upstreamException(UpstreamException ex) {
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                 .body(ApiResponse.error(ex.getMessage()));
     }

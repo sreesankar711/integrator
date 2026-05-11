@@ -26,7 +26,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public class RoutingRuleIntegrationTest extends AbstractContainerBaseTest{
+class RoutingRuleIntegrationTest extends AbstractContainerBaseTest{
     @Autowired
     private RouteRepository routeRepository;
 
@@ -36,7 +36,7 @@ public class RoutingRuleIntegrationTest extends AbstractContainerBaseTest{
     private UUID routeId;
 
     @BeforeAll
-    public void beforeAll() {
+    void beforeAll() {
         CreateRouteRequest createRouteRequest = new CreateRouteRequest();
         createRouteRequest.setName("routeTest");
         createRouteRequest.setDescription("description");
@@ -64,7 +64,7 @@ public class RoutingRuleIntegrationTest extends AbstractContainerBaseTest{
     @Test
     @Order(1)
     @DisplayName("Return Success if the routingRule is created")
-    public void createRoutingRuleSuccess() {
+    void createRoutingRuleSuccess() {
         CreateRoutingRuleRequest createRoutingRuleRequest = new CreateRoutingRuleRequest();
         createRoutingRuleRequest.setMatchConfig("{\"matchMode\":\"ALL\",\"conditions\":[{\"type\":\"HEADER\",\"key\":\"X-Client\",\"equals\":\"partner-a\"}]}");
         createRoutingRuleRequest.setEnabled(true);
@@ -109,7 +109,7 @@ public class RoutingRuleIntegrationTest extends AbstractContainerBaseTest{
     @Test
     @Order(2)
     @DisplayName("Return Failure if the Body fails validation")
-    public void createRoutingRuleFailureBodyFailsValidation() {
+    void createRoutingRuleFailureBodyFailsValidation() {
         Optional<Route> savedRoute = routeRepository.findById(routeId);
         assertThat(savedRoute).isPresent();
         Route route = savedRoute.get();
@@ -129,17 +129,17 @@ public class RoutingRuleIntegrationTest extends AbstractContainerBaseTest{
         assertThat(response.getBody().getCorrelationId()).isNotNull();
         assertThat(response.getBody().getTimestamp()).isNotNull();
         assertThat(response.getBody().getData()).isNotNull();
-        assertThat(response.getBody().getData().get("matchConfig")).isEqualTo("must not be blank");
-        assertThat(response.getBody().getData().get("overrideTargetUrl")).isEqualTo("must not be blank");
-        assertThat(response.getBody().getData().get("priority")).isEqualTo("must not be null");
-        assertThat(response.getBody().getData().get("enabled")).isEqualTo("must not be null");
+        assertThat(response.getBody().getData()).containsEntry("matchConfig","must not be blank");
+        assertThat(response.getBody().getData()).containsEntry("overrideTargetUrl","must not be blank");
+        assertThat(response.getBody().getData()).containsEntry("priority","must not be null");
+        assertThat(response.getBody().getData()).containsEntry("enabled","must not be null");
         assertThat(response.getBody().getMessage()).isEqualTo("Validation failed");
     }
 
     @Test
     @Order(3)
     @DisplayName("Return Failure if the Route not found")
-    public void createRoutingRuleFailureRouteNotFound() {
+    void createRoutingRuleFailureRouteNotFound() {
         CreateRoutingRuleRequest createRoutingRuleRequest = new CreateRoutingRuleRequest();
         createRoutingRuleRequest.setMatchConfig("{\"matchMode\": \"ALL\",\"conditions\": [{\"type\": \"HEADER\",\"key\": \"X-Client\",\"equals\": \"partner-a\"}]}");
         createRoutingRuleRequest.setEnabled(true);
@@ -165,7 +165,7 @@ public class RoutingRuleIntegrationTest extends AbstractContainerBaseTest{
     @Test
     @Order(4)
     @DisplayName("Return Failure if the routeId not given")
-    public void createRoutingRuleFailureRouteIdNotGiven() {
+    void createRoutingRuleFailureRouteIdNotGiven() {
         CreateRoutingRuleRequest createRoutingRuleRequest = new CreateRoutingRuleRequest();
         createRoutingRuleRequest.setMatchConfig("{\"matchMode\":\"ALL\",\"conditions\":[{\"type\":\"HEADER\",\"key\":\"X-Client\",\"equals\":\"partner-a\"}]}");
         createRoutingRuleRequest.setEnabled(true);
@@ -191,7 +191,7 @@ public class RoutingRuleIntegrationTest extends AbstractContainerBaseTest{
     @Test
     @Order(5)
     @DisplayName("Return Success if routingRule is updated")
-    public void updateRoutingRuleSuccess() {
+    void updateRoutingRuleSuccess() {
         Optional<Route> savedRoute = routeRepository.findById(routeId);
         assertThat(savedRoute).isPresent();
         Route route = savedRoute.get();
@@ -233,7 +233,7 @@ public class RoutingRuleIntegrationTest extends AbstractContainerBaseTest{
     @Test
     @Order(6)
     @DisplayName("Return Failure if rule is not found")
-    public void updateRoutingRuleFailureRuleNotFound() {
+    void updateRoutingRuleFailureRuleNotFound() {
         UpdateRoutingRuleRequest updateRoutingRuleRequest = new UpdateRoutingRuleRequest();
         updateRoutingRuleRequest.setMatchConfig("{\"matchMode\":\"NONE\"}");
         updateRoutingRuleRequest.setEnabled(false);
@@ -259,7 +259,7 @@ public class RoutingRuleIntegrationTest extends AbstractContainerBaseTest{
     @Test
     @Order(7)
     @DisplayName("Return Success if rule is deleted")
-    public void deleteRoutingRuleSuccess() {
+    void deleteRoutingRuleSuccess() {
         Optional<Route> savedRoute = routeRepository.findById(routeId);
         assertThat(savedRoute).isPresent();
         Route route = savedRoute.get();
@@ -285,7 +285,7 @@ public class RoutingRuleIntegrationTest extends AbstractContainerBaseTest{
     @Test
     @Order(8)
     @DisplayName("Return Failure if rule not found")
-    public void deleteRoutingRuleFailureRuleNotFound() {
+    void deleteRoutingRuleFailureRuleNotFound() {
         ResponseEntity<ApiResponse<RoutingRuleResponse>> response = restTemplate.exchange(
                 "http://localhost:" + port + "/rules/invalid-ruleId",
                 HttpMethod.DELETE,
