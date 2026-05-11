@@ -58,8 +58,6 @@ jobs:
           ./mvnw -B clean verify
           org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
           -Dsonar.projectKey=sreesankar711_integrator
-          -Dsonar.organization=sreesankar711
-          --no-transfer-progress
 
       - name: Upload JaCoCo report
         if: always()
