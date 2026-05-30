@@ -9,6 +9,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -19,9 +20,11 @@ abstract class AbstractContainerBaseTest {
             .withDatabaseName("integrator")
             .withUsername("route_svc")
             .withPassword("route_svc");
+    static KafkaContainer kafka = new KafkaContainer("apache/kafka:latest");
 
     static {
         postgres.start();
+        kafka.start();
     }
 
     @DynamicPropertySource
@@ -31,6 +34,8 @@ abstract class AbstractContainerBaseTest {
         registry.add("spring.datasource.password", postgres::getPassword);
         registry.add("spring.jpa.properties.hibernate.default_schema", () -> "route");
         registry.add("spring.flyway.schemas", ()-> "route");
+        registry.add("spring.kafka.bootstrap-servers", kafka::getBootstrapServers);
+        registry.add("route.events.topic", () -> "route.events");
     }
 
     @LocalServerPort

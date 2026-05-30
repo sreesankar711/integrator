@@ -6,11 +6,14 @@ import com.integrator.route.dto.CreateRouteRequest;
 import com.integrator.route.dto.RouteResponse;
 import com.integrator.route.dto.RoutingRuleResponse;
 import com.integrator.route.dto.UpdateRouteRequest;
+import com.integrator.common.event.RouteEvent;
+import com.integrator.common.event.RouteEventType;
 import com.integrator.route.model.Route;
 import com.integrator.route.model.RoutingRule;
 import com.integrator.route.repository.RouteRepository;
 import com.integrator.route.repository.RoutingRuleRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -27,6 +30,7 @@ import java.util.UUID;
 public class RouteService {
     private final RouteRepository routeRepository;
     private final RoutingRuleRepository routingRuleRepository;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     private static final String ROUTE_NOT_FOUND = "Route not found";
     private static final String ROUTE_NAME_EXISTS = "Route name already exists";
@@ -48,6 +52,7 @@ public class RouteService {
                 .build();
 
         Route savedRoute = routeRepository.saveAndFlush(route);
+        applicationEventPublisher.publishEvent(RouteEvent.of(RouteEventType.CREATED, savedRoute.getId()));
         return routeResponseBuilder(savedRoute, List.of());
     }
 
@@ -101,13 +106,16 @@ public class RouteService {
                 .enabled(updateRouteRequest.getEnabled())
                 .build();
 
-        return routeResponseBuilder(routeRepository.saveAndFlush(updatedRoute),
+        RouteResponse routeResponse = routeResponseBuilder(routeRepository.saveAndFlush(updatedRoute),
                 routingRuleRepository.findByRouteIdOrderByPriorityAsc(updatedRoute.getId()));
+        applicationEventPublisher.publishEvent(RouteEvent.of(RouteEventType.UPDATED, routeId));
+        return routeResponse;
     }
 
     public void deleteRoute(UUID routeId) {
         routeRepository.delete(routeRepository.findById(routeId)
                 .orElseThrow(() -> new ResourceNotFoundException(ROUTE_NOT_FOUND)));
+        applicationEventPublisher.publishEvent(RouteEvent.of(RouteEventType.DELETED, routeId));
     }
 
     private RouteResponse routeResponseBuilder(Route route, List<RoutingRule> routingRules) {
