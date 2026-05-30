@@ -1,0 +1,36 @@
+server:
+  port: 8080
+  shutdown: graceful
+
+spring:
+  config:
+    import: "optional:file:.env[.properties],optional:file:../.env[.properties]"
+  application:
+    name: integrator-gateway
+  reactor:
+    context-propagation: auto
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: integrator-gateway-service
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.integrator.common.event
+        spring.json.value.default.type: com.integrator.common.event.RouteEvent
+        spring.json.use.type.headers: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+
+gateway:
+  route-service-url: http://localhost:8082
+  route-events-topic: route.events
