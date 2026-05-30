@@ -15,6 +15,7 @@
         <module>integrator-common</module>
         <module>integrator-auth-service</module>
         <module>integrator-route-service</module>
+        <module>integrator-gateway</module>
     </modules>
 
     <properties>

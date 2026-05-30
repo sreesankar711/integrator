@@ -5,9 +5,13 @@ import com.integrator.common.api.PagedResponse;
 import com.integrator.route.dto.CreateRouteRequest;
 import com.integrator.route.dto.RouteResponse;
 import com.integrator.route.dto.UpdateRouteRequest;
+import com.integrator.common.event.RouteEvent;
+import com.integrator.common.event.RouteEventType;
 import com.integrator.route.model.Route;
 import com.integrator.route.model.TransformType;
 import com.integrator.route.repository.RouteRepository;
+import org.apache.kafka.clients.consumer.*;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -17,12 +21,11 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 import org.springframework.web.bind.annotation.RequestMethod;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.time.Duration;
+import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -55,6 +58,14 @@ class RouteIntegrationTest extends AbstractContainerBaseTest {
         assertThat(savedRoute).isPresent();
         assertThat(response.getBody().getData().getId()).isEqualTo(savedRoute.get().getId());
         compareRoute(savedRoute.get(), createRouteRequest);
+
+        ConsumerRecord<String, RouteEvent> event = consumeRouteEvent(savedRoute.get().getId(), RouteEventType.CREATED);
+        assertThat(event).isNotNull();
+        assertThat(event.key()).isEqualTo(savedRoute.get().getId().toString());
+        assertThat(event.value()).isNotNull();
+        assertThat(event.value().getRouteId()).isEqualTo(savedRoute.get().getId());
+        assertThat(event.value().getRouteEventType()).isEqualTo(RouteEventType.CREATED);
+        assertThat(event.value().getEventId()).isEqualTo(response.getBody().getCorrelationId());
     }
 
     @Test
@@ -294,6 +305,14 @@ class RouteIntegrationTest extends AbstractContainerBaseTest {
         assertThat(savedRoute).isPresent();
         Route route = savedRoute.get();
         compareRoute(routeResponse.getBody().getData(), route);
+
+        ConsumerRecord<String, RouteEvent> event = consumeRouteEvent(id, RouteEventType.UPDATED);
+        assertThat(event).isNotNull();
+        assertThat(event.key()).isEqualTo(id.toString());
+        assertThat(event.value()).isNotNull();
+        assertThat(event.value().getRouteId()).isEqualTo(id);
+        assertThat(event.value().getRouteEventType()).isEqualTo(RouteEventType.UPDATED);
+        assertThat(event.value().getEventId()).isEqualTo(routeResponse.getBody().getCorrelationId());
     }
 
     @Test
@@ -408,6 +427,14 @@ class RouteIntegrationTest extends AbstractContainerBaseTest {
 
         Optional<Route> savedRoute = routeRepository.findById(id);
         assertThat(savedRoute).isNotPresent();
+
+        ConsumerRecord<String, RouteEvent> event = consumeRouteEvent(id, RouteEventType.DELETED);
+        assertThat(event).isNotNull();
+        assertThat(event.key()).isEqualTo(id.toString());
+        assertThat(event.value()).isNotNull();
+        assertThat(event.value().getRouteId()).isEqualTo(id);
+        assertThat(event.value().getRouteEventType()).isEqualTo(RouteEventType.DELETED);
+        assertThat(event.value().getEventId()).isEqualTo(routeResponse.getBody().getCorrelationId());
     }
 
     @Test
@@ -492,5 +519,32 @@ class RouteIntegrationTest extends AbstractContainerBaseTest {
         createRouteRequest.setEnabled(true);
 
         return createRouteRequest;
+    }
+
+    private ConsumerRecord<String, RouteEvent> consumeRouteEvent(UUID routeId, RouteEventType routeEventType) {
+        Properties props = new Properties();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers());
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, "route-it-" + UUID.randomUUID());
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JacksonJsonDeserializer.class.getName());
+        props.put(JacksonJsonDeserializer.TRUSTED_PACKAGES, "com.integrator.route.event");
+        props.put(JacksonJsonDeserializer.VALUE_DEFAULT_TYPE, RouteEvent.class.getName());
+        props.put(JacksonJsonDeserializer.USE_TYPE_INFO_HEADERS, false);
+
+        try (Consumer<String, RouteEvent> consumer = new KafkaConsumer<>(props)) {
+            consumer.subscribe(Collections.singleton("route.events"));
+                ConsumerRecords<String, RouteEvent> consumerRecords = consumer.poll(Duration.ofMillis(500));
+                for (ConsumerRecord<String, RouteEvent> consumerRecord : consumerRecords) {
+                    RouteEvent event = consumerRecord.value();
+                    if (event != null
+                            && routeId.equals(event.getRouteId())
+                            && routeEventType == event.getRouteEventType()) {
+                        return consumerRecord;
+                    }
+            }
+        }
+        return null;
     }
 }

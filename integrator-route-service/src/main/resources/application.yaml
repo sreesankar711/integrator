@@ -14,20 +14,31 @@ spring:
     hikari:
       maximum-pool-size: 10
       minimum-idle: 2
-    jpa:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
       hibernate:
-        ddl-auto: validate
+        default_schema: route
+    show-sql: false
+    open-in-view: false
+  flyway:
+    enabled: true
+    schemas: route
+    locations: classpath:db/migration
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      client-id: integrator-route-service
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+      acks: all
+      retries: 3
       properties:
-        hibernate:
-          default_schema: route
-      show-sql: false
-      open-in-view: false
-    flyway:
-      enabled: true
-      schemas: route
-      locations: classpath:db/migration
-    lifecycle:
-      timeout-per-shutdown-phase: 30s
+        enable.idempotence: true
+        spring.json.add.type.headers: false
 
 management:
   endpoints:
@@ -39,3 +50,7 @@ management:
       probes:
         enabled: true
       show-details: always
+
+route:
+  events:
+    topic: route.events
