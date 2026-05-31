@@ -3,10 +3,10 @@ name: Java unit test and code quality
 on:
   push:
     branches:
-      - develop
+      - main
   pull_request:
     branches:
-      - develop
+      - main
     types: [opened, synchronize, reopened]
 
 jobs:
