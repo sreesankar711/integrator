@@ -7,7 +7,6 @@ import com.integrator.gateway.dto.Route;
 import com.integrator.gateway.event.RouteEventConsumerReadiness;
 import com.integrator.gateway.mapper.GatewayRouteDefinitionMapper;
 import com.integrator.gateway.model.TransformType;
-import com.integrator.gateway.service.GatewayRouteRegistrationService;
 import com.integrator.gateway.startup.GatewayRouteRegistrationStartup;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Order;
@@ -24,7 +23,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.when;
 
 class RouteEventKafkaIntegrationTest extends AbstractContainerBaseTest{
     @MockitoBean

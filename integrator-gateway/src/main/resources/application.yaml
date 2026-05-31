@@ -34,3 +34,4 @@ management:
 gateway:
   route-service-url: http://localhost:8082
   route-events-topic: route.events
+  route-refresh-interval: 30000
