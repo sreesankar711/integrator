@@ -14,7 +14,9 @@ import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -58,6 +60,9 @@ public class GatewayRouteRegistrationService {
             routeDefinitionRepository.save(Mono.just(routeDefinition.get())).block();
             registeredRoutes++;
         }
+        if (isRefresh) {
+            deleteRoutesMissing(routes);
+        }
         applicationEventPublisher.publishEvent(new RefreshRoutesEvent(this));
         log.info("Gateway route registration completed. fetched={}, registered={}, skipped={}",
                 routes.size(), registeredRoutes, skippedRoutes);
@@ -82,5 +87,17 @@ public class GatewayRouteRegistrationService {
         routeDefinitionRepository.delete(Mono.just(routeId.toString())).block();
         applicationEventPublisher.publishEvent(new RefreshRoutesEvent(this));
         log.info("Gateway route deleted: routeId={}", routeId);
+    }
+    private void deleteRoutesMissing(List<Route> routes) {
+        Set<String> currentRouteIds = routes.stream()
+                .map(route -> route.getId().toString())
+                .collect(Collectors.toSet());
+
+        routeDefinitionRepository.getRouteDefinitions()
+                .filter(routeDefinition -> !currentRouteIds.contains(routeDefinition.getId()))
+                .flatMap(routeDefinition -> routeDefinitionRepository.delete(Mono.just(routeDefinition.getId()))
+                        .onErrorResume(error -> Mono.empty()))
+                .then()
+                .block();
     }
 }

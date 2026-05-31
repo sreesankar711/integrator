@@ -11,6 +11,7 @@ import org.springframework.cloud.gateway.route.RouteDefinition;
 import org.springframework.cloud.gateway.route.RouteDefinitionRepository;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.web.bind.annotation.RequestMethod;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.net.URI;
@@ -93,6 +94,7 @@ class GatewayRouteRegistrationServiceTest {
         when(routeDefinitionMapper.toRouteDefinition(route)).thenReturn(Optional.of(routeDefinition));
         when(routeDefinitionRepository.delete(any())).thenReturn(Mono.empty());
         when(routeDefinitionRepository.save(any())).thenReturn(Mono.empty());
+        when(routeDefinitionRepository.getRouteDefinitions()).thenReturn(Flux.empty());
         gatewayRouteRegistrationService.refreshRoutes();
         verify(routeServiceClient).getAllRoutes();
         verify(routeDefinitionRepository).delete(any());
