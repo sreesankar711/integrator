@@ -35,7 +35,7 @@ public class GatewayRouteRegistrationService {
         try {
             routes = routeServiceClient.getAllRoutes();
         } catch (Exception ex) {
-            log.warn("Gateway route refresh skipped. Route Service is unavailable.", ex);
+            log.warn("Gateway route refresh skipped. Route Service is unavailable. {}", ex.getLocalizedMessage());
             return;
         }
         applyRoutes(routes, true);
