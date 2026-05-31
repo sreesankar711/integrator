@@ -7,8 +7,7 @@ import org.junit.jupiter.api.*;
 import org.mockito.InOrder;
 import org.springframework.boot.ApplicationArguments;
 
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.*;
 
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class GatewayRouteRegistrationStartupTest {
@@ -30,5 +29,14 @@ class GatewayRouteRegistrationStartupTest {
         InOrder inOrder = inOrder(routeEventConsumerReadiness, gatewayRouteRegistrationService);
         inOrder.verify(routeEventConsumerReadiness).awaitReady();
         inOrder.verify(gatewayRouteRegistrationService).registerRoutes();
+    }
+
+    @Test
+    @Order(2)
+    @DisplayName("Routes are refreshed on schedule")
+    void refreshRoutesSuccessOnSchedule() {
+        gatewayRouteRegistrationStartup.refreshRoutes();
+        verify(gatewayRouteRegistrationService).refreshRoutes();
+        verifyNoInteractions(routeEventConsumerReadiness);
     }
 }

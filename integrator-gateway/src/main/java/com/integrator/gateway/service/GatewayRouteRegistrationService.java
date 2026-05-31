@@ -27,10 +27,29 @@ public class GatewayRouteRegistrationService {
 
     public void registerRoutes() {
         List<Route> routes = routeServiceClient.getAllRoutes();
+        applyRoutes(routes, false);
+    }
+
+    public void refreshRoutes() {
+        List<Route> routes;
+        try {
+            routes = routeServiceClient.getAllRoutes();
+        } catch (Exception ex) {
+            log.warn("Gateway route refresh skipped. Route Service is unavailable.", ex);
+            return;
+        }
+        applyRoutes(routes, true);
+    }
+
+    private void applyRoutes(List<Route> routes, boolean isRefresh) {
         int registeredRoutes = 0;
         int skippedRoutes = 0;
-
         for (Route route : routes) {
+            if (isRefresh) {
+                routeDefinitionRepository.delete(Mono.just(route.getId().toString()))
+                        .onErrorResume(error -> Mono.empty())
+                        .block();
+            }
             Optional<RouteDefinition> routeDefinition = routeDefinitionMapper.toRouteDefinition(route);
             if (routeDefinition.isEmpty()) {
                 skippedRoutes++;
@@ -39,7 +58,6 @@ public class GatewayRouteRegistrationService {
             routeDefinitionRepository.save(Mono.just(routeDefinition.get())).block();
             registeredRoutes++;
         }
-
         applicationEventPublisher.publishEvent(new RefreshRoutesEvent(this));
         log.info("Gateway route registration completed. fetched={}, registered={}, skipped={}",
                 routes.size(), registeredRoutes, skippedRoutes);

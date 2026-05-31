@@ -8,4 +8,5 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class GatewayProperties {
     private String routeServiceUrl;
     private String routeEventsTopic;
+    private long routeRefreshInterval;
 }
