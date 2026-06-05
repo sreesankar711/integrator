@@ -1,5 +1,7 @@
 package com.integrator.route.service;
 
+import com.integrator.common.event.RouteEvent;
+import com.integrator.common.event.RouteEventType;
 import com.integrator.common.exception.ResourceNotFoundException;
 import com.integrator.route.dto.CreateRoutingRuleRequest;
 import com.integrator.route.dto.RoutingRuleResponse;
@@ -9,6 +11,7 @@ import com.integrator.route.model.RoutingRule;
 import com.integrator.route.repository.RouteRepository;
 import com.integrator.route.repository.RoutingRuleRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +23,7 @@ import java.util.UUID;
 public class RoutingRuleService {
     private final RouteRepository routeRepository;
     private final RoutingRuleRepository routingRuleRepository;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     public RoutingRuleResponse createRoutingRule(UUID routeId, CreateRoutingRuleRequest createRoutingRuleRequest) {
         Route route = routeRepository.findById(routeId)
@@ -32,7 +36,7 @@ public class RoutingRuleService {
                 .priority(createRoutingRuleRequest.getPriority())
                 .enabled(createRoutingRuleRequest.getEnabled())
                 .build();
-
+        applicationEventPublisher.publishEvent(RouteEvent.of(RouteEventType.UPDATED, routeId));
         return routingRuleResponseBuilder(routingRuleRepository.saveAndFlush(rule));
     }
 
@@ -44,13 +48,14 @@ public class RoutingRuleService {
         rule.setOverrideTargetUrl(updateRoutingRuleRequest.getOverrideTargetUrl());
         rule.setPriority(updateRoutingRuleRequest.getPriority());
         rule.setEnabled(updateRoutingRuleRequest.getEnabled());
-
+        applicationEventPublisher.publishEvent(RouteEvent.of(RouteEventType.UPDATED, rule.getRoute().getId()));
         return routingRuleResponseBuilder(routingRuleRepository.save(rule));
     }
 
     public void deleteRoutingRule(UUID ruleId) {
         RoutingRule rule = routingRuleRepository.findById(ruleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Routing rule not found"));
+        applicationEventPublisher.publishEvent(RouteEvent.of(RouteEventType.UPDATED, rule.getRoute().getId()));
         routingRuleRepository.delete(rule);
     }
 

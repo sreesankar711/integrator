@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.boot.webflux.error.ErrorWebExceptionHandler;
+import org.springframework.cloud.gateway.support.ServerWebExchangeUtils;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpHeaders;
@@ -42,12 +43,16 @@ public class GlobalExceptionHandler implements ErrorWebExceptionHandler {
         HttpStatus httpStatus = HttpStatus.INTERNAL_SERVER_ERROR;
         if (ex instanceof NoResourceFoundException) {
             httpStatus = HttpStatus.NOT_FOUND;
+        } else if (ex instanceof java.net.ConnectException) {
+            httpStatus = HttpStatus.BAD_GATEWAY;
         }
         GatewayErrorResponse gatewayErrorResponse = GatewayErrorResponse.builder()
                 .timestamp(Instant.now())
                 .correlationId(correlationId)
                 .path(exchange.getRequest().getPath().value())
-                .error(httpStatus.getReasonPhrase())
+                .error(httpStatus.isSameCodeAs(HttpStatus.BAD_GATEWAY) || httpStatus.is4xxClientError()
+                        ? httpStatus.getReasonPhrase() + ": " + exchange.getAttribute(ServerWebExchangeUtils.GATEWAY_REQUEST_URL_ATTR)
+                        : httpStatus.getReasonPhrase())
                 .build();
 
         exchange.getResponse().setStatusCode(httpStatus);
