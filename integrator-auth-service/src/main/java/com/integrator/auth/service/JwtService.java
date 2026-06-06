@@ -29,7 +29,7 @@ public class JwtService {
                 .claim("username",user.getUsername())
                 .claim("role",user.getRole())
                 .issuedAt(Date.from(Instant.now()))
-                .expiration(Date.from(getRefreshTokenExpiry()))
+                .expiration(Date.from(getAccessTokenExpiry()))
                 .signWith(rsaPrivateKey)
                 .compact();
     }
@@ -54,6 +54,10 @@ public class JwtService {
     }
 
     public Instant getRefreshTokenExpiry() {
+        return Instant.now().plus(jwtProperties.getRefreshTokenExpiry());
+    }
+
+    public Instant getAccessTokenExpiry() {
         return Instant.now().plus(jwtProperties.getAccessTokenExpiry());
     }
 
