@@ -3,27 +3,16 @@ package com.integrator.auth;
 import com.integrator.auth.dto.*;
 import com.integrator.auth.model.RefreshToken;
 import com.integrator.auth.model.User;
-import com.integrator.auth.repository.RefreshTokenRepository;
-import com.integrator.auth.repository.UserRepository;
-import com.integrator.auth.service.JwtService;
 import com.integrator.auth.util.TokenHashUtils;
 import com.integrator.common.api.ApiResponse;
-import org.junit.jupiter.api.*;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.resttestclient.TestRestTemplate;
-import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.server.LocalServerPort;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.Test;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.postgresql.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -32,41 +21,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Testcontainers
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@AutoConfigureTestRestTemplate
-@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-class AuthIntegrationTest {
-    @Container
-    static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:latest")
-            .withDatabaseName("integrator")
-            .withUsername("auth_svc")
-            .withPassword("auth_svc");
-
-    @DynamicPropertySource
-    static void properties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", postgres::getJdbcUrl);
-        registry.add("spring.datasource.username", postgres::getUsername);
-        registry.add("spring.datasource.password", postgres::getPassword);
-        registry.add("spring.jpa.properties.hibernate.default_schema", () -> "auth");
-        registry.add("spring.flyway.schemas", ()->"auth");
-    }
-
-    @LocalServerPort
-    private int port;
-
-    @Autowired
-    private TestRestTemplate restTemplate;
-
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private RefreshTokenRepository refreshTokenRepository;
-
-    @Autowired
-    private JwtService jwtService;
-
+class AuthIntegrationTest extends AbstractContainerBaseTest{
 
     @Test
     @Order(1)
@@ -501,5 +456,24 @@ class AuthIntegrationTest {
         assertThat(response.getBody().isSuccess()).isFalse();
         assertThat(response.getBody().getData()).isNull();
         assertThat(response.getBody().getMessage()).isEqualTo("Invalid refresh token");
+    }
+
+    @Test
+    @Order(14)
+    @DisplayName("Return Not Found when auth resource does not exist")
+    void missingResourceReturnsNotFound() {
+        ResponseEntity<ApiResponse<Void>> response = restTemplate.exchange(
+                "http://localhost:" + port + "/missing",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {}
+        );
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getCorrelationId()).isNotNull();
+        assertThat(response.getBody().getTimestamp()).isNotNull();
+        assertThat(response.getBody().isSuccess()).isFalse();
+        assertThat(response.getBody().getData()).isNull();
+        assertThat(response.getBody().getMessage()).isEqualTo(HttpStatus.NOT_FOUND.getReasonPhrase());
     }
 }

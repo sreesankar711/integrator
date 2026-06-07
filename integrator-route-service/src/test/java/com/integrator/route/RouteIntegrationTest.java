@@ -2,11 +2,11 @@ package com.integrator.route;
 
 import com.integrator.common.api.ApiResponse;
 import com.integrator.common.api.PagedResponse;
+import com.integrator.common.event.RouteEvent;
+import com.integrator.common.event.RouteEventType;
 import com.integrator.route.dto.CreateRouteRequest;
 import com.integrator.route.dto.RouteResponse;
 import com.integrator.route.dto.UpdateRouteRequest;
-import com.integrator.common.event.RouteEvent;
-import com.integrator.common.event.RouteEventType;
 import com.integrator.route.model.Route;
 import com.integrator.route.model.TransformType;
 import com.integrator.route.repository.RouteRepository;
@@ -17,10 +17,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 import org.springframework.web.bind.annotation.RequestMethod;
 
@@ -41,7 +38,7 @@ class RouteIntegrationTest extends AbstractContainerBaseTest {
         ResponseEntity<ApiResponse<RouteResponse>> response = restTemplate.exchange(
                 "http://localhost:" + port + "/routes",
                 HttpMethod.POST,
-                new HttpEntity<>(createRouteRequest),
+                new HttpEntity<>(createRouteRequest, userHeader()),
                 new ParameterizedTypeReference<>() {}
         );
 
@@ -84,7 +81,7 @@ class RouteIntegrationTest extends AbstractContainerBaseTest {
         ResponseEntity<ApiResponse<RouteResponse>> response = restTemplate.exchange(
                 "http://localhost:" + port + "/routes",
                 HttpMethod.POST,
-                new HttpEntity<>(createRouteRequest),
+                new HttpEntity<>(createRouteRequest, userHeader()),
                 new ParameterizedTypeReference<>() {}
         );
 
@@ -106,7 +103,7 @@ class RouteIntegrationTest extends AbstractContainerBaseTest {
         ResponseEntity<ApiResponse<Map<String, String>>> response = restTemplate.exchange(
                 "http://localhost:" + port + "/routes",
                 HttpMethod.POST,
-                new HttpEntity<>(createRouteRequest),
+                new HttpEntity<>(createRouteRequest, userHeader()),
                 new ParameterizedTypeReference<>() {}
         );
 
@@ -127,13 +124,47 @@ class RouteIntegrationTest extends AbstractContainerBaseTest {
 
     @Test
     @Order(4)
+    @DisplayName("Return Failure when auth token is missing")
+    void createRouteFailureAuthTokenMissing() {
+        CreateRouteRequest createRouteRequest = new CreateRouteRequest();
+
+        ResponseEntity<ApiResponse<Map<String, String>>> response = restTemplate.exchange(
+                "http://localhost:" + port + "/routes",
+                HttpMethod.POST,
+                new HttpEntity<>(createRouteRequest),
+                new ParameterizedTypeReference<>() {}
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    @Order(5)
+    @DisplayName("Return Failure when auth token is invalid")
+    void createRouteFailureAuthTokenInvalid() {
+        CreateRouteRequest createRouteRequest = new CreateRouteRequest();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth("invalid");
+
+        ResponseEntity<ApiResponse<Map<String, String>>> response = restTemplate.exchange(
+                "http://localhost:" + port + "/routes",
+                HttpMethod.POST,
+                new HttpEntity<>(createRouteRequest, headers),
+                new ParameterizedTypeReference<>() {}
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    @Order(6)
     @DisplayName("Return Success when all Routes are fetched")
     void getRoutesSuccess() {
         CreateRouteRequest createRouteRequest = createRouteRequestBody("route2");
         restTemplate.exchange(
                 "http://localhost:" + port + "/routes",
                 HttpMethod.POST,
-                new HttpEntity<>(createRouteRequest),
+                new HttpEntity<>(createRouteRequest, userHeader()),
                 new ParameterizedTypeReference<>() {}
         );
 
@@ -163,7 +194,7 @@ class RouteIntegrationTest extends AbstractContainerBaseTest {
     }
 
     @Test
-    @Order(5)
+    @Order(7)
     @DisplayName("Return Success when all Routes are fetched in paged")
     void getPagedRoutesSuccess() {
         int page = 0;
@@ -196,14 +227,14 @@ class RouteIntegrationTest extends AbstractContainerBaseTest {
     }
 
     @Test
-    @Order(6)
+    @Order(8)
     @DisplayName("Return Success when Route is fetched by id successfully")
     void getRouteByIdSuccess() {
         CreateRouteRequest createRouteRequest = createRouteRequestBody("route3");
         ResponseEntity<ApiResponse<RouteResponse>> response = restTemplate.exchange(
                 "http://localhost:" + port + "/routes",
                 HttpMethod.POST,
-                new HttpEntity<>(createRouteRequest),
+                new HttpEntity<>(createRouteRequest, userHeader()),
                 new ParameterizedTypeReference<>() {}
         );
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
@@ -226,7 +257,7 @@ class RouteIntegrationTest extends AbstractContainerBaseTest {
     }
 
     @Test
-    @Order(7)
+    @Order(9)
     @DisplayName("Return Failure when routeId does not exist")
     void getRouteByIdFailureRouteIdDoesNotExist() {
         ResponseEntity<ApiResponse<RouteResponse>> routeResponse = restTemplate.exchange(
@@ -245,7 +276,7 @@ class RouteIntegrationTest extends AbstractContainerBaseTest {
     }
 
     @Test
-    @Order(8)
+    @Order(10)
     @DisplayName("Return Failure when routeId is invalid")
     void getRouteByIdFailureRouteIdIsInvalid() {
         ResponseEntity<ApiResponse<RouteResponse>> routeResponse = restTemplate.exchange(
@@ -264,7 +295,7 @@ class RouteIntegrationTest extends AbstractContainerBaseTest {
     }
 
     @Test
-    @Order(9)
+    @Order(11)
     @DisplayName("Return Success when route is updated")
     void updateRouteSuccess() {
         Optional<Route> routeForId = routeRepository.findByName("route2");
@@ -283,7 +314,7 @@ class RouteIntegrationTest extends AbstractContainerBaseTest {
         ResponseEntity<ApiResponse<RouteResponse>> routeResponse = restTemplate.exchange(
                 "http://localhost:" + port + "/routes/" + id,
                 HttpMethod.PUT,
-                new HttpEntity<>(updateRouteRequest),
+                new HttpEntity<>(updateRouteRequest, userHeader()),
                 new ParameterizedTypeReference<>() {}
         );
         assertThat(routeResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -316,7 +347,7 @@ class RouteIntegrationTest extends AbstractContainerBaseTest {
     }
 
     @Test
-    @Order(10)
+    @Order(12)
     @DisplayName("Return Failure when routeName already exists")
     void updateRouteFailureRouteNameAlreadyExists() {
         Optional<Route> routeForId = routeRepository.findByName("route5");
@@ -336,7 +367,7 @@ class RouteIntegrationTest extends AbstractContainerBaseTest {
         ResponseEntity<ApiResponse<RouteResponse>> routeResponse = restTemplate.exchange(
                 "http://localhost:" + port + "/routes/" + id,
                 HttpMethod.PUT,
-                new HttpEntity<>(updateRouteRequest),
+                new HttpEntity<>(updateRouteRequest, userHeader()),
                 new ParameterizedTypeReference<>() {}
         );
         assertThat(routeResponse.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
@@ -349,7 +380,7 @@ class RouteIntegrationTest extends AbstractContainerBaseTest {
     }
 
     @Test
-    @Order(11)
+    @Order(13)
     @DisplayName("Return Failure in updateRoute when routeId is invalid")
     void updateRouteFailureRouteIdIsInvalid() {
         UpdateRouteRequest updateRouteRequest = new UpdateRouteRequest();
@@ -364,7 +395,7 @@ class RouteIntegrationTest extends AbstractContainerBaseTest {
         ResponseEntity<ApiResponse<RouteResponse>> routeResponse = restTemplate.exchange(
                 "http://localhost:" + port + "/routes/invalid-routeId",
                 HttpMethod.PUT,
-                new HttpEntity<>(updateRouteRequest),
+                new HttpEntity<>(updateRouteRequest, userHeader()),
                 new ParameterizedTypeReference<>() {}
         );
         assertThat(routeResponse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
@@ -377,7 +408,7 @@ class RouteIntegrationTest extends AbstractContainerBaseTest {
     }
 
     @Test
-    @Order(12)
+    @Order(14)
     @DisplayName("Return Failure in updateRoute when route is not found")
     void updateRouteFailureRouteIdNotFound() {
         UpdateRouteRequest updateRouteRequest = new UpdateRouteRequest();
@@ -392,7 +423,7 @@ class RouteIntegrationTest extends AbstractContainerBaseTest {
         ResponseEntity<ApiResponse<RouteResponse>> routeResponse = restTemplate.exchange(
                 "http://localhost:" + port + "/routes/" + UUID.randomUUID(),
                 HttpMethod.PUT,
-                new HttpEntity<>(updateRouteRequest),
+                new HttpEntity<>(updateRouteRequest, userHeader()),
                 new ParameterizedTypeReference<>() {}
         );
         assertThat(routeResponse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
@@ -405,7 +436,62 @@ class RouteIntegrationTest extends AbstractContainerBaseTest {
     }
 
     @Test
-    @Order(13)
+    @Order(15)
+    @DisplayName("Return Failure when route is updated but token missing")
+    void updateRouteFailureAuthTokenMissing() {
+        Optional<Route> routeForId = routeRepository.findByName("route5");
+        assertThat(routeForId).isPresent();
+        UUID id = routeForId.get().getId();
+
+        UpdateRouteRequest updateRouteRequest = new UpdateRouteRequest();
+        updateRouteRequest.setName("route5");
+        updateRouteRequest.setDescription("route5");
+        updateRouteRequest.setPathPattern("/new/path");
+        updateRouteRequest.setTargetUrl("https://example.com/new/url");
+        updateRouteRequest.setHttpMethod(RequestMethod.DELETE);
+        updateRouteRequest.setEnabled(Boolean.FALSE);
+        updateRouteRequest.setTransformType(TransformType.NONE);
+
+        ResponseEntity<ApiResponse<RouteResponse>> routeResponse = restTemplate.exchange(
+                "http://localhost:" + port + "/routes/" + id,
+                HttpMethod.PUT,
+                new HttpEntity<>(updateRouteRequest),
+                new ParameterizedTypeReference<>() {}
+        );
+        assertThat(routeResponse.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    @Order(16)
+    @DisplayName("Return Failure when route is updated but token invalid")
+    void updateRouteFailureAuthTokenInvalid() {
+        Optional<Route> routeForId = routeRepository.findByName("route5");
+        assertThat(routeForId).isPresent();
+        UUID id = routeForId.get().getId();
+
+        UpdateRouteRequest updateRouteRequest = new UpdateRouteRequest();
+        updateRouteRequest.setName("route5");
+        updateRouteRequest.setDescription("route5");
+        updateRouteRequest.setPathPattern("/new/path");
+        updateRouteRequest.setTargetUrl("https://example.com/new/url");
+        updateRouteRequest.setHttpMethod(RequestMethod.DELETE);
+        updateRouteRequest.setEnabled(Boolean.FALSE);
+        updateRouteRequest.setTransformType(TransformType.NONE);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth("invalid");
+
+        ResponseEntity<ApiResponse<RouteResponse>> routeResponse = restTemplate.exchange(
+                "http://localhost:" + port + "/routes/" + id,
+                HttpMethod.PUT,
+                new HttpEntity<>(updateRouteRequest, headers),
+                new ParameterizedTypeReference<>() {}
+        );
+        assertThat(routeResponse.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    @Order(17)
     @DisplayName("Return Success when route is deleted")
     void deleteRouteSuccess() {
         Optional<Route> routeForId = routeRepository.findByName("route5");
@@ -415,7 +501,7 @@ class RouteIntegrationTest extends AbstractContainerBaseTest {
         ResponseEntity<ApiResponse<RouteResponse>> routeResponse = restTemplate.exchange(
                 "http://localhost:" + port + "/routes/" + id,
                 HttpMethod.DELETE,
-                null,
+                new HttpEntity<>(userHeader()),
                 new ParameterizedTypeReference<>() {}
         );
         assertThat(routeResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -438,13 +524,13 @@ class RouteIntegrationTest extends AbstractContainerBaseTest {
     }
 
     @Test
-    @Order(14)
+    @Order(18)
     @DisplayName("Return Failure in deleteRoute when routeId is invalid")
     void deleteRouteFailureRouteIdIsInvalid() {
         ResponseEntity<ApiResponse<RouteResponse>> routeResponse = restTemplate.exchange(
                 "http://localhost:" + port + "/routes/invalid-routeId",
                 HttpMethod.DELETE,
-                null,
+                new HttpEntity<>(userHeader()),
                 new ParameterizedTypeReference<>() {}
         );
         assertThat(routeResponse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
@@ -457,14 +543,14 @@ class RouteIntegrationTest extends AbstractContainerBaseTest {
     }
 
     @Test
-    @Order(15)
+    @Order(19)
     @DisplayName("Return Failure in deleteRoute when routeId not found")
     void deleteRouteFailureRouteIdNotFound() {
         UUID id = UUID.randomUUID();
         ResponseEntity<ApiResponse<RouteResponse>> routeResponse = restTemplate.exchange(
                 "http://localhost:" + port + "/routes/" + id,
                 HttpMethod.DELETE,
-                null,
+                new HttpEntity<>(userHeader()),
                 new ParameterizedTypeReference<>() {}
         );
         assertThat(routeResponse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
@@ -474,6 +560,36 @@ class RouteIntegrationTest extends AbstractContainerBaseTest {
         assertThat(routeResponse.getBody().getTimestamp()).isNotNull();
         assertThat(routeResponse.getBody().getData()).isNull();
         assertThat(routeResponse.getBody().getMessage()).isEqualTo("Route not found");
+    }
+
+    @Test
+    @Order(20)
+    @DisplayName("Return Failure in deleteRoute when auth token is missing")
+    void deleteRouteFailureAuthTokenMissing() {
+        UUID id = UUID.randomUUID();
+        ResponseEntity<ApiResponse<RouteResponse>> routeResponse = restTemplate.exchange(
+                "http://localhost:" + port + "/routes/" + id,
+                HttpMethod.DELETE,
+                null,
+                new ParameterizedTypeReference<>() {}
+        );
+        assertThat(routeResponse.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    @Order(21)
+    @DisplayName("Return Failure in deleteRoute when auth token is invalid")
+    void deleteRouteFailureAuthTokenInvalid() {
+        UUID id = UUID.randomUUID();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth("invalid");
+        ResponseEntity<ApiResponse<RouteResponse>> routeResponse = restTemplate.exchange(
+                "http://localhost:" + port + "/routes/" + id,
+                HttpMethod.DELETE,
+                new HttpEntity<>(headers),
+                new ParameterizedTypeReference<>() {}
+        );
+        assertThat(routeResponse.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 
     private void compareRoute(Route route, CreateRouteRequest createRouteRequest) {

@@ -1,7 +1,8 @@
-package com.integrator.route;
+package com.integrator.auth;
 
-import com.integrator.route.authUtil.TestJwtFactory;
-import com.integrator.route.authUtil.TestJwtKeyConfig;
+import com.integrator.auth.repository.RefreshTokenRepository;
+import com.integrator.auth.repository.UserRepository;
+import com.integrator.auth.service.JwtService;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,27 +10,27 @@ import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.context.annotation.Import;
-import org.springframework.http.HttpHeaders;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-@Import(TestJwtKeyConfig.class)
 abstract class AbstractContainerBaseTest {
+
+    static final String ADMIN_USERNAME = "admin";
+    static final String ADMIN_EMAIL = "admin@integrator.dev";
+    static final String ADMIN_PASSWORD = "password";
+
     static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:latest")
             .withDatabaseName("integrator")
-            .withUsername("route_svc")
-            .withPassword("route_svc");
-    static KafkaContainer kafka = new KafkaContainer("apache/kafka:latest");
+            .withUsername("auth_svc")
+            .withPassword("auth_svc");
 
     static {
         postgres.start();
-        kafka.start();
     }
 
     @DynamicPropertySource
@@ -37,10 +38,12 @@ abstract class AbstractContainerBaseTest {
         registry.add("spring.datasource.url", postgres::getJdbcUrl);
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
-        registry.add("spring.jpa.properties.hibernate.default_schema", () -> "route");
-        registry.add("spring.flyway.schemas", ()-> "route");
-        registry.add("spring.kafka.bootstrap-servers", kafka::getBootstrapServers);
-        registry.add("route.events.topic", () -> "route.events");
+        registry.add("spring.jpa.properties.hibernate.default_schema", () -> "auth");
+        registry.add("spring.flyway.schemas", ()->"auth");
+        registry.add("bootstrap.admin.enabled", () -> "true");
+        registry.add("bootstrap.admin.username", () -> ADMIN_USERNAME);
+        registry.add("bootstrap.admin.email", () -> ADMIN_EMAIL);
+        registry.add("bootstrap.admin.password", () -> ADMIN_PASSWORD);
     }
 
     @LocalServerPort
@@ -50,17 +53,14 @@ abstract class AbstractContainerBaseTest {
     TestRestTemplate restTemplate;
 
     @Autowired
-    TestJwtFactory testJwtFactory;
+    UserRepository userRepository;
 
-    HttpHeaders userHeader() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(testJwtFactory.userToken());
-        return headers;
-    }
+    @Autowired
+    RefreshTokenRepository refreshTokenRepository;
 
-    HttpHeaders adminHeader() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(testJwtFactory.adminToken());
-        return headers;
-    }
+    @Autowired
+    JwtService jwtService;
+
+    @Autowired
+    PasswordEncoder passwordEncoder;
 }

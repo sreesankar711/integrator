@@ -54,3 +54,6 @@ management:
 route:
   events:
     topic: route.events
+
+jwt:
+  public-key-path: ${JWT_PUBLIC_KEY_PATH}

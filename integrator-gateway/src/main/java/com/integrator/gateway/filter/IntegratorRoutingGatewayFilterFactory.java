@@ -29,8 +29,6 @@ import java.util.Optional;
 public class IntegratorRoutingGatewayFilterFactory extends AbstractGatewayFilterFactory<IntegratorRoutingGatewayFilterFactory.Config> {
     private final RoutingRuleTargetResolver routingRuleTargetResolver;
     private static final int ORDER = RouteToRequestUrlFilter.ROUTE_TO_URL_FILTER_ORDER + 1;
-//    private static final int ORDER =  Integer.MAX_VALUE - 1;
-
 
     public IntegratorRoutingGatewayFilterFactory(RoutingRuleTargetResolver routingRuleTargetResolver) {
         super(Config.class);

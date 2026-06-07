@@ -1,16 +1,13 @@
 package com.integrator.auth;
 
-import com.integrator.auth.config.JwtProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 
 import java.util.TimeZone;
 
 @SpringBootApplication(scanBasePackages = "com.integrator")
-@EnableConfigurationProperties(
-        JwtProperties.class
-)
+@ConfigurationPropertiesScan
 public class IntegratorAuthServiceApplication {
     public static void main(String[] args) {
         TimeZone.setDefault(TimeZone.getTimeZone("Asia/Kolkata"));

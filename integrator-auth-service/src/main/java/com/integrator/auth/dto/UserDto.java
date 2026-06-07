@@ -1,6 +1,10 @@
 package com.integrator.auth.dto;
 
-import lombok.*;
+import com.integrator.auth.model.Role;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.util.UUID;
 
@@ -12,5 +16,5 @@ public class UserDto {
     private UUID id;
     private String username;
     private String email;
-    private String role;
+    private Role role;
 }
