@@ -1,5 +1,6 @@
 package com.integrator.route.event;
 
+import com.integrator.common.event.RouteEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -7,7 +8,6 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
-import com.integrator.common.event.RouteEvent;
 
 @Slf4j
 @Component

@@ -10,10 +10,7 @@ import com.integrator.route.repository.RoutingRuleRepository;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.test.json.JsonAssert;
 import org.springframework.test.json.JsonCompareMode;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -50,7 +47,7 @@ class RoutingRuleIntegrationTest extends AbstractContainerBaseTest{
         ResponseEntity<ApiResponse<RouteResponse>> response = restTemplate.exchange(
                 "http://localhost:" + port + "/routes",
                 HttpMethod.POST,
-                new HttpEntity<>(createRouteRequest),
+                new HttpEntity<>(createRouteRequest, userHeader()),
                 new ParameterizedTypeReference<>() {}
         );
 
@@ -74,7 +71,7 @@ class RoutingRuleIntegrationTest extends AbstractContainerBaseTest{
         ResponseEntity<ApiResponse<RoutingRuleResponse>> response = restTemplate.exchange(
                 "http://localhost:" + port + "/rules/create?routeId=" + routeId,
                 HttpMethod.POST,
-                new HttpEntity<>(createRoutingRuleRequest),
+                new HttpEntity<>(createRoutingRuleRequest, userHeader()),
                 new ParameterizedTypeReference<>() {}
         );
 
@@ -119,7 +116,7 @@ class RoutingRuleIntegrationTest extends AbstractContainerBaseTest{
         ResponseEntity<ApiResponse<Map<String,String>>> response = restTemplate.exchange(
                 "http://localhost:" + port + "/rules/create?routeId=" + route.getId(),
                 HttpMethod.POST,
-                new HttpEntity<>(createRoutingRuleRequest),
+                new HttpEntity<>(createRoutingRuleRequest, userHeader()),
                 new ParameterizedTypeReference<>() {}
         );
 
@@ -149,7 +146,7 @@ class RoutingRuleIntegrationTest extends AbstractContainerBaseTest{
         ResponseEntity<ApiResponse<Map<String,String>>> response = restTemplate.exchange(
                 "http://localhost:" + port + "/rules/create?routeId=invalid-routeId",
                 HttpMethod.POST,
-                new HttpEntity<>(createRoutingRuleRequest),
+                new HttpEntity<>(createRoutingRuleRequest, userHeader()),
                 new ParameterizedTypeReference<>() {}
         );
 
@@ -175,7 +172,7 @@ class RoutingRuleIntegrationTest extends AbstractContainerBaseTest{
         ResponseEntity<ApiResponse<Map<String,String>>> response = restTemplate.exchange(
                 "http://localhost:" + port + "/rules/create",
                 HttpMethod.POST,
-                new HttpEntity<>(createRoutingRuleRequest),
+                new HttpEntity<>(createRoutingRuleRequest, userHeader()),
                 new ParameterizedTypeReference<>() {}
         );
 
@@ -190,6 +187,49 @@ class RoutingRuleIntegrationTest extends AbstractContainerBaseTest{
 
     @Test
     @Order(5)
+    @DisplayName("Return Failure when authToken is missing")
+    void createRoutingRuleFailureAuthTokenIsMissing() {
+        CreateRoutingRuleRequest createRoutingRuleRequest = new CreateRoutingRuleRequest();
+        createRoutingRuleRequest.setMatchConfig("{\"matchMode\":\"ALL\",\"conditions\":[{\"type\":\"HEADER\",\"key\":\"X-Client\",\"equals\":\"partner-a\"}]}");
+        createRoutingRuleRequest.setEnabled(true);
+        createRoutingRuleRequest.setOverrideTargetUrl("http://route-service");
+        createRoutingRuleRequest.setPriority(0);
+
+        ResponseEntity<ApiResponse<RoutingRuleResponse>> response = restTemplate.exchange(
+                "http://localhost:" + port + "/rules/create?routeId=" + routeId,
+                HttpMethod.POST,
+                new HttpEntity<>(createRoutingRuleRequest),
+                new ParameterizedTypeReference<>() {}
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    @Order(6)
+    @DisplayName("Return Failure when authToken is invalid")
+    void createRoutingRuleFailureAuthTokenIsInvalid() {
+        CreateRoutingRuleRequest createRoutingRuleRequest = new CreateRoutingRuleRequest();
+        createRoutingRuleRequest.setMatchConfig("{\"matchMode\":\"ALL\",\"conditions\":[{\"type\":\"HEADER\",\"key\":\"X-Client\",\"equals\":\"partner-a\"}]}");
+        createRoutingRuleRequest.setEnabled(true);
+        createRoutingRuleRequest.setOverrideTargetUrl("http://route-service");
+        createRoutingRuleRequest.setPriority(0);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth("invalid");
+
+        ResponseEntity<ApiResponse<RoutingRuleResponse>> response = restTemplate.exchange(
+                "http://localhost:" + port + "/rules/create?routeId=" + routeId,
+                HttpMethod.POST,
+                new HttpEntity<>(createRoutingRuleRequest, headers),
+                new ParameterizedTypeReference<>() {}
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    @Order(7)
     @DisplayName("Return Success if routingRule is updated")
     void updateRoutingRuleSuccess() {
         Optional<Route> savedRoute = routeRepository.findById(routeId);
@@ -207,7 +247,7 @@ class RoutingRuleIntegrationTest extends AbstractContainerBaseTest{
         ResponseEntity<ApiResponse<RoutingRuleResponse>> response = restTemplate.exchange(
                 "http://localhost:" + port + "/rules/" +  savedRoutingRule.getId(),
                 HttpMethod.PUT,
-                new HttpEntity<>(updateRoutingRuleRequest),
+                new HttpEntity<>(updateRoutingRuleRequest, userHeader()),
                 new ParameterizedTypeReference<>() {}
         );
 
@@ -231,7 +271,7 @@ class RoutingRuleIntegrationTest extends AbstractContainerBaseTest{
     }
 
     @Test
-    @Order(6)
+    @Order(8)
     @DisplayName("Return Failure if rule is not found")
     void updateRoutingRuleFailureRuleNotFound() {
         UpdateRoutingRuleRequest updateRoutingRuleRequest = new UpdateRoutingRuleRequest();
@@ -243,7 +283,7 @@ class RoutingRuleIntegrationTest extends AbstractContainerBaseTest{
         ResponseEntity<ApiResponse<RoutingRuleResponse>> response = restTemplate.exchange(
                 "http://localhost:" + port + "/rules/invalid-ruleId",
                 HttpMethod.PUT,
-                new HttpEntity<>(updateRoutingRuleRequest),
+                new HttpEntity<>(updateRoutingRuleRequest, userHeader()),
                 new ParameterizedTypeReference<>() {}
         );
 
@@ -257,7 +297,50 @@ class RoutingRuleIntegrationTest extends AbstractContainerBaseTest{
     }
 
     @Test
-    @Order(7)
+    @Order(9)
+    @DisplayName("Return Failure when routingRule is updated but authToken is missing")
+    void updateRoutingRuleFailureAuthTokenIsMissing() {
+        UpdateRoutingRuleRequest updateRoutingRuleRequest = new UpdateRoutingRuleRequest();
+        updateRoutingRuleRequest.setMatchConfig("{\"matchMode\":\"NONE\"}");
+        updateRoutingRuleRequest.setEnabled(false);
+        updateRoutingRuleRequest.setOverrideTargetUrl("http://route-service-updated");
+        updateRoutingRuleRequest.setPriority(1);
+
+        ResponseEntity<ApiResponse<RoutingRuleResponse>> response = restTemplate.exchange(
+                "http://localhost:" + port + "/rules/" + UUID.randomUUID(),
+                HttpMethod.PUT,
+                new HttpEntity<>(updateRoutingRuleRequest),
+                new ParameterizedTypeReference<>() {}
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    @Order(10)
+    @DisplayName("Return Failure when routingRule is updated but authToken is invalid")
+    void updateRoutingRuleFailureAuthTokenIsInvalid() {
+        UpdateRoutingRuleRequest updateRoutingRuleRequest = new UpdateRoutingRuleRequest();
+        updateRoutingRuleRequest.setMatchConfig("{\"matchMode\":\"NONE\"}");
+        updateRoutingRuleRequest.setEnabled(false);
+        updateRoutingRuleRequest.setOverrideTargetUrl("http://route-service-updated");
+        updateRoutingRuleRequest.setPriority(1);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth("invalid");
+
+        ResponseEntity<ApiResponse<RoutingRuleResponse>> response = restTemplate.exchange(
+                "http://localhost:" + port + "/rules/" + UUID.randomUUID(),
+                HttpMethod.PUT,
+                new HttpEntity<>(updateRoutingRuleRequest, headers),
+                new ParameterizedTypeReference<>() {}
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    @Order(11)
     @DisplayName("Return Success if rule is deleted")
     void deleteRoutingRuleSuccess() {
         Optional<Route> savedRoute = routeRepository.findById(routeId);
@@ -269,7 +352,7 @@ class RoutingRuleIntegrationTest extends AbstractContainerBaseTest{
         ResponseEntity<ApiResponse<RoutingRuleResponse>> response = restTemplate.exchange(
                 "http://localhost:" + port + "/rules/" +   savedRoutingRule.getId(),
                 HttpMethod.DELETE,
-                null,
+                new HttpEntity<>(null, userHeader()),
                 new ParameterizedTypeReference<>() {}
         );
 
@@ -283,13 +366,13 @@ class RoutingRuleIntegrationTest extends AbstractContainerBaseTest{
     }
 
     @Test
-    @Order(8)
+    @Order(12)
     @DisplayName("Return Failure if rule not found")
     void deleteRoutingRuleFailureRuleNotFound() {
         ResponseEntity<ApiResponse<RoutingRuleResponse>> response = restTemplate.exchange(
                 "http://localhost:" + port + "/rules/invalid-ruleId",
                 HttpMethod.DELETE,
-                null,
+                new HttpEntity<>(null, userHeader()),
                 new ParameterizedTypeReference<>() {}
         );
 
@@ -300,5 +383,36 @@ class RoutingRuleIntegrationTest extends AbstractContainerBaseTest{
         assertThat(response.getBody().getTimestamp()).isNotNull();
         assertThat(response.getBody().getData()).isNull();
         assertThat(response.getBody().getMessage()).isEqualTo("Routing rule not found");
+    }
+
+    @Test
+    @Order(13)
+    @DisplayName("Return Failure when routingRule is deleted but authToken is missing")
+    void deleteRoutingRuleFailureAuthTokenIsMissing() {
+        ResponseEntity<ApiResponse<RoutingRuleResponse>> response = restTemplate.exchange(
+                "http://localhost:" + port + "/rules/" + UUID.randomUUID(),
+                HttpMethod.DELETE,
+                null,
+                new ParameterizedTypeReference<>() {}
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    @Order(14)
+    @DisplayName("Return Failure when routingRule is deleted but authToken is invalid")
+    void deleteRoutingRuleFailureAuthTokenIsInvalid() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth("invalid");
+
+        ResponseEntity<ApiResponse<RoutingRuleResponse>> response = restTemplate.exchange(
+                "http://localhost:" + port + "/rules/" + UUID.randomUUID(),
+                HttpMethod.DELETE,
+                new HttpEntity<>(null, headers),
+                new ParameterizedTypeReference<>() {}
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 }

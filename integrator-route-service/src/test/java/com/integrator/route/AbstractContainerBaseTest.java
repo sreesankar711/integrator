@@ -1,5 +1,7 @@
 package com.integrator.route;
 
+import com.integrator.route.authUtil.TestJwtFactory;
+import com.integrator.route.authUtil.TestJwtKeyConfig;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -7,6 +9,8 @@ import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.kafka.KafkaContainer;
@@ -15,6 +19,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+@Import(TestJwtKeyConfig.class)
 abstract class AbstractContainerBaseTest {
     static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:latest")
             .withDatabaseName("integrator")
@@ -43,4 +48,19 @@ abstract class AbstractContainerBaseTest {
 
     @Autowired
     TestRestTemplate restTemplate;
+
+    @Autowired
+    TestJwtFactory testJwtFactory;
+
+    HttpHeaders userHeader() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(testJwtFactory.userToken());
+        return headers;
+    }
+
+    HttpHeaders adminHeader() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(testJwtFactory.adminToken());
+        return headers;
+    }
 }
