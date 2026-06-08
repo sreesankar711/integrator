@@ -29,4 +29,8 @@ public class RouteResponse {
     private Instant createdAt ;
     private Instant updatedAt ;
     private List<RoutingRuleResponse> routingRules;
+    private boolean rateLimitEnabled;
+    private Integer rateLimitReplenishRate;
+    private Integer rateLimitBurstCapacity;
+    private Integer rateLimitRequestedTokens;
 }

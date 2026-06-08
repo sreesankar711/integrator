@@ -62,5 +62,17 @@ public class Route {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    @Column(name = "rate_limit_enabled", nullable = false)
+    private boolean rateLimitEnabled;
+
+    @Column(name = "rate_limit_replenish_rate")
+    private Integer rateLimitReplenishRate;
+
+    @Column(name = "rate_limit_burst_capacity")
+    private Integer rateLimitBurstCapacity;
+
+    @Column(name = "rate_limit_requested_tokens")
+    private Integer rateLimitRequestedTokens;
 }
 

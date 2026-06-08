@@ -39,7 +39,11 @@ public class RouteService {
         if (routeRepository.existsByName(createRouteRequest.getName())) {
             throw new ValidationException(ROUTE_NAME_EXISTS);
         }
-            Route route = Route.builder()
+        validateRateLimits(createRouteRequest.getRateLimitEnabled(),
+                           createRouteRequest.getRateLimitReplenishRate(),
+                           createRouteRequest.getRateLimitBurstCapacity(),
+                           createRouteRequest.getRateLimitRequestedTokens());
+        Route route = Route.builder()
                 .name(createRouteRequest.getName())
                 .description(createRouteRequest.getDescription())
                 .pathPattern(createRouteRequest.getPathPattern())
@@ -49,6 +53,10 @@ public class RouteService {
                 .fieldMappingConfig(createRouteRequest.getFieldMappingConfig())
                 .snippetId(createRouteRequest.getSnippetId())
                 .enabled(createRouteRequest.getEnabled())
+                .rateLimitEnabled(Boolean.TRUE.equals(createRouteRequest.getRateLimitEnabled()))
+                .rateLimitReplenishRate(createRouteRequest.getRateLimitReplenishRate())
+                .rateLimitBurstCapacity(createRouteRequest.getRateLimitBurstCapacity())
+                .rateLimitRequestedTokens(createRouteRequest.getRateLimitRequestedTokens())
                 .build();
 
         Route savedRoute = routeRepository.saveAndFlush(route);
@@ -93,7 +101,10 @@ public class RouteService {
         if(savedRoute.isPresent() && !savedRoute.get().getId().equals(route.getId())) {
             throw new ValidationException(ROUTE_NAME_EXISTS);
         }
-
+        validateRateLimits(updateRouteRequest.getRateLimitEnabled(),
+                           updateRouteRequest.getRateLimitReplenishRate(),
+                           updateRouteRequest.getRateLimitBurstCapacity(),
+                           updateRouteRequest.getRateLimitRequestedTokens());
         Route updatedRoute = route.toBuilder()
                 .name(updateRouteRequest.getName())
                 .description(updateRouteRequest.getDescription())
@@ -104,6 +115,10 @@ public class RouteService {
                 .fieldMappingConfig(updateRouteRequest.getFieldMappingConfig())
                 .snippetId(updateRouteRequest.getSnippetId())
                 .enabled(updateRouteRequest.getEnabled())
+                .rateLimitEnabled(Boolean.TRUE.equals(updateRouteRequest.getRateLimitEnabled()))
+                .rateLimitReplenishRate(updateRouteRequest.getRateLimitReplenishRate())
+                .rateLimitBurstCapacity(updateRouteRequest.getRateLimitBurstCapacity())
+                .rateLimitRequestedTokens(updateRouteRequest.getRateLimitRequestedTokens())
                 .build();
 
         RouteResponse routeResponse = routeResponseBuilder(routeRepository.saveAndFlush(updatedRoute),
@@ -133,6 +148,10 @@ public class RouteService {
                 .createdAt(route.getCreatedAt())
                 .updatedAt(route.getUpdatedAt())
                 .routingRules(routingRules.stream().map(this::routingRuleResponseBuilder).toList())
+                .rateLimitEnabled(route.isRateLimitEnabled())
+                .rateLimitReplenishRate(route.getRateLimitReplenishRate())
+                .rateLimitBurstCapacity(route.getRateLimitBurstCapacity())
+                .rateLimitRequestedTokens(route.getRateLimitRequestedTokens())
                 .build();
     }
 
@@ -147,4 +166,20 @@ public class RouteService {
         response.setCreatedAt(rule.getCreatedAt());
         return response;
     }
+
+    private void validateRateLimits(Boolean rateLimitEnabled, Integer replenishRate, Integer burstCapacity, Integer requestedTokens) {
+        if (!Boolean.TRUE.equals(rateLimitEnabled)) {
+            return;
+        }
+        if (replenishRate == null || burstCapacity == null || requestedTokens == null) {
+            throw new ValidationException("Rate limit values are required when rate limiting is enabled");
+        }
+        if (replenishRate <= 0 || burstCapacity <= 0 || requestedTokens <= 0) {
+            throw new ValidationException("Rate limit values must be positive");
+        }
+        if (requestedTokens > burstCapacity) {
+            throw new ValidationException("Requested tokens must be less than or equal to burst capacity");
+        }
+    }
+
 }

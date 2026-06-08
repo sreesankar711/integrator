@@ -592,6 +592,145 @@ class RouteIntegrationTest extends AbstractContainerBaseTest {
         assertThat(routeResponse.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 
+    @Test
+    @Order(22)
+    @DisplayName("Return Success when route is created with rate limits")
+    void createRouteSuccessWithRateLimits() {
+        CreateRouteRequest createRouteRequest = createRouteRequestBody("rateLimitRoute1");
+        createRouteRequest.setRateLimitEnabled(true);
+        createRouteRequest.setRateLimitReplenishRate(10);
+        createRouteRequest.setRateLimitBurstCapacity(20);
+        createRouteRequest.setRateLimitRequestedTokens(2);
+
+        ResponseEntity<ApiResponse<RouteResponse>> response = restTemplate.exchange(
+                "http://localhost:" + port + "/routes",
+                HttpMethod.POST,
+                new HttpEntity<>(createRouteRequest, userHeader()),
+                new ParameterizedTypeReference<>() {}
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().isSuccess()).isTrue();
+        assertThat(response.getBody().getData()).isNotNull();
+        compareRoute(response.getBody().getData(), createRouteRequest);
+
+        Optional<Route> savedRoute = routeRepository.findByName(createRouteRequest.getName());
+        assertThat(savedRoute).isPresent();
+        compareRoute(savedRoute.get(), createRouteRequest);
+    }
+
+    @Test
+    @Order(23)
+    @DisplayName("Return Failure when rate limit values are missing")
+    void createRouteFailureRateLimitValuesMissing() {
+        CreateRouteRequest createRouteRequest = createRouteRequestBody("rateLimitRouteMissing");
+        createRouteRequest.setRateLimitEnabled(true);
+
+        ResponseEntity<ApiResponse<RouteResponse>> response = restTemplate.exchange(
+                "http://localhost:" + port + "/routes",
+                HttpMethod.POST,
+                new HttpEntity<>(createRouteRequest, userHeader()),
+                new ParameterizedTypeReference<>() {}
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().isSuccess()).isFalse();
+        assertThat(response.getBody().getData()).isNull();
+        assertThat(response.getBody().getMessage()).isEqualTo("Rate limit values are required when rate limiting is enabled");
+    }
+
+    @Test
+    @Order(24)
+    @DisplayName("Return Failure when rate limit values are not positive")
+    void createRouteFailureRateLimitValuesNotPositive() {
+        CreateRouteRequest createRouteRequest = createRouteRequestBody("rateLimitRouteNotPositive");
+        createRouteRequest.setRateLimitEnabled(true);
+        createRouteRequest.setRateLimitReplenishRate(0);
+        createRouteRequest.setRateLimitBurstCapacity(20);
+        createRouteRequest.setRateLimitRequestedTokens(1);
+
+        ResponseEntity<ApiResponse<RouteResponse>> response = restTemplate.exchange(
+                "http://localhost:" + port + "/routes",
+                HttpMethod.POST,
+                new HttpEntity<>(createRouteRequest, userHeader()),
+                new ParameterizedTypeReference<>() {}
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().isSuccess()).isFalse();
+        assertThat(response.getBody().getData()).isNull();
+        assertThat(response.getBody().getMessage()).isEqualTo("Rate limit values must be positive");
+    }
+
+    @Test
+    @Order(25)
+    @DisplayName("Return Failure when requested tokens exceed burst capacity")
+    void createRouteFailureRequestedTokensExceedBurstCapacity() {
+        CreateRouteRequest createRouteRequest = createRouteRequestBody("rateLimitRouteTokenOverflow");
+        createRouteRequest.setRateLimitEnabled(true);
+        createRouteRequest.setRateLimitReplenishRate(10);
+        createRouteRequest.setRateLimitBurstCapacity(2);
+        createRouteRequest.setRateLimitRequestedTokens(3);
+
+        ResponseEntity<ApiResponse<RouteResponse>> response = restTemplate.exchange(
+                "http://localhost:" + port + "/routes",
+                HttpMethod.POST,
+                new HttpEntity<>(createRouteRequest, userHeader()),
+                new ParameterizedTypeReference<>() {}
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().isSuccess()).isFalse();
+        assertThat(response.getBody().getData()).isNull();
+        assertThat(response.getBody().getMessage()).isEqualTo("Requested tokens must be less than or equal to burst capacity");
+    }
+
+    @Test
+    @Order(26)
+    @DisplayName("Return Success when route rate limits are updated")
+    void updateRouteSuccessWithRateLimits() {
+        Optional<Route> routeForId = routeRepository.findByName("rateLimitRoute1");
+        assertThat(routeForId).isPresent();
+        UUID id = routeForId.get().getId();
+
+        UpdateRouteRequest updateRouteRequest = new UpdateRouteRequest();
+        updateRouteRequest.setName("rateLimitRoute1Updated");
+        updateRouteRequest.setDescription("rate limit updated");
+        updateRouteRequest.setPathPattern("/rate-limit/updated");
+        updateRouteRequest.setTargetUrl("https://example.com/rate-limit-updated");
+        updateRouteRequest.setHttpMethod(RequestMethod.POST);
+        updateRouteRequest.setEnabled(true);
+        updateRouteRequest.setTransformType(TransformType.NONE);
+        updateRouteRequest.setRateLimitEnabled(true);
+        updateRouteRequest.setRateLimitReplenishRate(30);
+        updateRouteRequest.setRateLimitBurstCapacity(60);
+        updateRouteRequest.setRateLimitRequestedTokens(3);
+
+        ResponseEntity<ApiResponse<RouteResponse>> response = restTemplate.exchange(
+                "http://localhost:" + port + "/routes/" + id,
+                HttpMethod.PUT,
+                new HttpEntity<>(updateRouteRequest, userHeader()),
+                new ParameterizedTypeReference<>() {}
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().isSuccess()).isTrue();
+        assertThat(response.getBody().getData()).isNotNull();
+        assertThat(response.getBody().getData().isRateLimitEnabled()).isTrue();
+        assertThat(response.getBody().getData().getRateLimitReplenishRate()).isEqualTo(30);
+        assertThat(response.getBody().getData().getRateLimitBurstCapacity()).isEqualTo(60);
+        assertThat(response.getBody().getData().getRateLimitRequestedTokens()).isEqualTo(3);
+
+        Optional<Route> savedRoute = routeRepository.findByName(updateRouteRequest.getName());
+        assertThat(savedRoute).isPresent();
+        compareRoute(response.getBody().getData(), savedRoute.get());
+    }
+
     private void compareRoute(Route route, CreateRouteRequest createRouteRequest) {
         assertThat(route.getName()).isEqualTo(createRouteRequest.getName());
         assertThat(route.getDescription()).isEqualTo(createRouteRequest.getDescription());
@@ -600,6 +739,10 @@ class RouteIntegrationTest extends AbstractContainerBaseTest {
         assertThat(route.getTargetUrl()).isEqualTo(createRouteRequest.getTargetUrl());
         assertThat(route.getTransformType()).isEqualTo(createRouteRequest.getTransformType());
         assertThat(route.isEnabled()).isEqualTo(createRouteRequest.getEnabled());
+        assertThat(route.isRateLimitEnabled()).isEqualTo(Boolean.TRUE.equals(createRouteRequest.getRateLimitEnabled()));
+        assertThat(route.getRateLimitReplenishRate()).isEqualTo(createRouteRequest.getRateLimitReplenishRate());
+        assertThat(route.getRateLimitBurstCapacity()).isEqualTo(createRouteRequest.getRateLimitBurstCapacity());
+        assertThat(route.getRateLimitRequestedTokens()).isEqualTo(createRouteRequest.getRateLimitRequestedTokens());
     }
 
     private void compareRoute(RouteResponse routeResponse, CreateRouteRequest createRouteRequest) {
@@ -610,6 +753,10 @@ class RouteIntegrationTest extends AbstractContainerBaseTest {
         assertThat(routeResponse.getTargetUrl()).isEqualTo(createRouteRequest.getTargetUrl());
         assertThat(routeResponse.getTransformType()).isEqualTo(createRouteRequest.getTransformType());
         assertThat(routeResponse.isEnabled()).isEqualTo(createRouteRequest.getEnabled());
+        assertThat(routeResponse.isRateLimitEnabled()).isEqualTo(Boolean.TRUE.equals(createRouteRequest.getRateLimitEnabled()));
+        assertThat(routeResponse.getRateLimitReplenishRate()).isEqualTo(createRouteRequest.getRateLimitReplenishRate());
+        assertThat(routeResponse.getRateLimitBurstCapacity()).isEqualTo(createRouteRequest.getRateLimitBurstCapacity());
+        assertThat(routeResponse.getRateLimitRequestedTokens()).isEqualTo(createRouteRequest.getRateLimitRequestedTokens());
     }
 
     private void compareRoute(RouteResponse routeResponse, Route route) {
@@ -622,6 +769,10 @@ class RouteIntegrationTest extends AbstractContainerBaseTest {
         assertThat(routeResponse.isEnabled()).isEqualTo(route.isEnabled());
         assertThat(routeResponse.getCreatedAt()).isEqualTo(route.getCreatedAt());
         assertThat(routeResponse.getUpdatedAt()).isEqualTo(route.getUpdatedAt());
+        assertThat(routeResponse.isRateLimitEnabled()).isEqualTo(route.isRateLimitEnabled());
+        assertThat(routeResponse.getRateLimitReplenishRate()).isEqualTo(route.getRateLimitReplenishRate());
+        assertThat(routeResponse.getRateLimitBurstCapacity()).isEqualTo(route.getRateLimitBurstCapacity());
+        assertThat(routeResponse.getRateLimitRequestedTokens()).isEqualTo(route.getRateLimitRequestedTokens());
     }
 
     private CreateRouteRequest createRouteRequestBody(String name) {
