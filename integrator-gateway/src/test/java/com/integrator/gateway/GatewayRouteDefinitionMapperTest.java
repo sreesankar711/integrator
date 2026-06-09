@@ -4,6 +4,7 @@ import com.integrator.gateway.dto.Route;
 import com.integrator.gateway.mapper.GatewayRouteDefinitionMapper;
 import com.integrator.gateway.model.TransformType;
 import org.junit.jupiter.api.*;
+import org.springframework.cloud.gateway.filter.FilterDefinition;
 import org.springframework.cloud.gateway.handler.predicate.PredicateDefinition;
 import org.springframework.cloud.gateway.route.RouteDefinition;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -22,6 +23,10 @@ class GatewayRouteDefinitionMapperTest {
     @DisplayName("Maps correctly when route is enabled")
     void addRouteSuccess() {
         Route route = defaultRoute();
+        route.setRateLimitEnabled(true);
+        route.setRateLimitReplenishRate(10);
+        route.setRateLimitBurstCapacity(20);
+        route.setRateLimitRequestedTokens(1);
         UUID routeId = route.getId();
         Optional<RouteDefinition> routeDefinitionOptional = mapper.toRouteDefinition(route);
         assertThat(routeDefinitionOptional).isPresent();
@@ -34,15 +39,48 @@ class GatewayRouteDefinitionMapperTest {
                 .containsExactly("Path", "Method");
         assertThat(routeDefinition.getPredicates().getFirst().getArgs()).containsValue("/agw/orders/**");
         assertThat(routeDefinition.getPredicates().get(1).getArgs()).containsValue("GET");
-        assertThat(routeDefinition.getFilters().getFirst().getName()).isEqualTo("SetRequestUri");
+        assertThat(routeDefinition.getFilters())
+                .extracting(FilterDefinition::getName)
+                .containsExactly("RequestRateLimiter", "SetRequestUri");
+
+        FilterDefinition requestRateLimiterFilter = routeDefinition.getFilters().getFirst();
+        assertThat(requestRateLimiterFilter.getArgs())
+                .containsEntry("keyResolver", "#{@routeRateLimitKeyResolver}")
+                .containsEntry("redis-rate-limiter.replenishRate", "10")
+                .containsEntry("redis-rate-limiter.burstCapacity", "20")
+                .containsEntry("redis-rate-limiter.requestedTokens", "1");
+
+        FilterDefinition setRequestUriFilter = routeDefinition.getFilters().get(1);
+        assertThat(setRequestUriFilter.getArgs()).containsEntry("template", "http://localhost:9000");
+
         assertThat(routeDefinition.getMetadata())
                 .containsEntry("integratorManaged", true)
                 .containsEntry("routeId", routeId)
-                .containsEntry("routeName", "orders");
+                .containsEntry("routeName", "orders")
+                .containsEntry("rateLimitEnabled", true)
+                .containsEntry("rateLimitReplenishRate", 10)
+                .containsEntry("rateLimitBurstCapacity", 20)
+                .containsEntry("rateLimitRequestedTokens", 1);
     }
 
     @Test
     @Order(2)
+    @DisplayName("Maps route without rate limit using only SetRequestUri filter")
+    void addRouteSuccessWithoutRateLimit() {
+        Route route = defaultRoute();
+        Optional<RouteDefinition> routeDefinitionOptional = mapper.toRouteDefinition(route);
+        assertThat(routeDefinitionOptional).isPresent();
+
+        RouteDefinition routeDefinition = routeDefinitionOptional.get();
+        assertThat(routeDefinition.getFilters())
+                .extracting(FilterDefinition::getName)
+                .containsExactly("SetRequestUri");
+        assertThat(routeDefinition.getFilters().getFirst().getArgs())
+                .containsEntry("template", "http://localhost:9000");
+    }
+
+    @Test
+    @Order(3)
     @DisplayName("Route is not added as not enabled")
     void addRouteFailureRouteIsNotEnabled() {
         Route route = defaultRoute();
@@ -52,7 +90,7 @@ class GatewayRouteDefinitionMapperTest {
     }
 
     @Test
-    @Order(3)
+    @Order(4)
     @DisplayName("Route is not added as target url is invalid")
     void addRouteFailureTargetUrlIsInvalid() {
         Route route = defaultRoute();

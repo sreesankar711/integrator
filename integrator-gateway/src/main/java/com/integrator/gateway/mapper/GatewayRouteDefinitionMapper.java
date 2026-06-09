@@ -10,10 +10,7 @@ import org.springframework.cloud.gateway.support.NameUtils;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -24,6 +21,11 @@ public class GatewayRouteDefinitionMapper {
     private static final String SET_REQUEST_URI_FILTER = "SetRequestUri";
     private static final String SET_REQUEST_URI_TEMPLATE_ARG = "template";
     private static final String INTEGRATOR_ROUTING_FILTER = "IntegratorRouting";
+    private static final String REQUEST_RATE_LIMITER_FILTER = "RequestRateLimiter";
+    private static final String KEY_RESOLVER_ARG = "keyResolver";
+    private static final String REDIS_RATE_LIMITER_REPLENISH_RATE_ARG = "redis-rate-limiter.replenishRate";
+    private static final String REDIS_RATE_LIMITER_BURST_CAPACITY_ARG = "redis-rate-limiter.burstCapacity";
+    private static final String REDIS_RATE_LIMITER_REQUESTED_TOKENS_ARG = "redis-rate-limiter.requestedTokens";
 
     public Optional<RouteDefinition> toRouteDefinition(Route route) {
         if (route == null) {
@@ -91,11 +93,17 @@ public class GatewayRouteDefinitionMapper {
     }
 
     private List<FilterDefinition> filterDefinitions(Route route, String targetUrl) {
-        if (route.getRoutingRules() == null || route.getRoutingRules().isEmpty()) {
-            return List.of(setRequestUriFilter(targetUrl));
+        List<FilterDefinition> filters = new ArrayList<>();
+        if (route.isRateLimitEnabled()) {
+            filters.add(requestRateLimiterFilter(route));
         }
-        return List.of(setRequestUriFilter(targetUrl), integratorRoutingFilter());
+        filters.add(setRequestUriFilter(targetUrl));
+        if (route.getRoutingRules() != null && !route.getRoutingRules().isEmpty()) {
+            filters.add(integratorRoutingFilter());
+        }
+        return filters;
     }
+
     private int routeOrder(String pathPattern) {
         if (pathPattern.contains("**")) {
             return 100;
@@ -112,6 +120,20 @@ public class GatewayRouteDefinitionMapper {
         metadata.put("fieldMappingConfig", route.getFieldMappingConfig());
         metadata.put("snippetId", route.getSnippetId());
         metadata.put("routingRules", route.getRoutingRules());
+        metadata.put("rateLimitEnabled", route.isRateLimitEnabled());
+        metadata.put("rateLimitReplenishRate", route.getRateLimitReplenishRate());
+        metadata.put("rateLimitBurstCapacity", route.getRateLimitBurstCapacity());
+        metadata.put("rateLimitRequestedTokens", route.getRateLimitRequestedTokens());
         return metadata;
+    }
+
+    private FilterDefinition requestRateLimiterFilter(Route route) {
+        FilterDefinition filterDefinition = new FilterDefinition();
+        filterDefinition.setName(REQUEST_RATE_LIMITER_FILTER);
+        filterDefinition.addArg(KEY_RESOLVER_ARG, "#{@routeRateLimitKeyResolver}");
+        filterDefinition.addArg(REDIS_RATE_LIMITER_REPLENISH_RATE_ARG, route.getRateLimitReplenishRate().toString());
+        filterDefinition.addArg(REDIS_RATE_LIMITER_BURST_CAPACITY_ARG, route.getRateLimitBurstCapacity().toString());
+        filterDefinition.addArg(REDIS_RATE_LIMITER_REQUESTED_TOKENS_ARG, route.getRateLimitRequestedTokens().toString());
+        return filterDefinition;
     }
 }
