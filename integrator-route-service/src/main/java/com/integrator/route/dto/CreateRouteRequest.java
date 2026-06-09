@@ -38,4 +38,9 @@ public class CreateRouteRequest {
 
     @NotNull
     private Boolean enabled;
+
+    private Boolean rateLimitEnabled;
+    private Integer rateLimitReplenishRate;
+    private Integer rateLimitBurstCapacity;
+    private Integer rateLimitRequestedTokens;
 }

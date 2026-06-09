@@ -26,4 +26,8 @@ public class Route {
     private UUID snippetId;
     private boolean enabled;
     private List<RoutingRule> routingRules;
+    private boolean rateLimitEnabled;
+    private Integer rateLimitReplenishRate;
+    private Integer rateLimitBurstCapacity;
+    private Integer rateLimitRequestedTokens;
 }

@@ -34,4 +34,8 @@ public class UpdateRouteRequest {
     private String fieldMappingConfig;
     private UUID snippetId;
     private Boolean enabled;
+    private Boolean rateLimitEnabled;
+    private Integer rateLimitReplenishRate;
+    private Integer rateLimitBurstCapacity;
+    private Integer rateLimitRequestedTokens;
 }
