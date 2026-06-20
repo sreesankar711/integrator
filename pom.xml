@@ -28,6 +28,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <argLine></argLine>
         <sonar.organization>fsgcgefwbdgxagxguewfgbxwjgfdhsi3242876482rgdwvsgdvhb</sonar.organization>
+        <opentelemetry.instrumentation.version>2.21.0-alpha</opentelemetry.instrumentation.version>
     </properties>
 
     <dependencyManagement>

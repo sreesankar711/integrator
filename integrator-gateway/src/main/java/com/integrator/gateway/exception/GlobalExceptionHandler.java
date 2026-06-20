@@ -19,6 +19,7 @@ import reactor.core.publisher.Mono;
 import reactor.util.context.ContextView;
 import tools.jackson.databind.ObjectMapper;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Objects;
 
@@ -59,7 +60,7 @@ public class GlobalExceptionHandler implements ErrorWebExceptionHandler {
         exchange.getResponse().getHeaders().set(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
 
         byte[] bytes = objectMapper.writeValueAsBytes(gatewayErrorResponse);
-
+        exchange.getAttributes().put("gateway.errorResponseBody", new String(bytes, StandardCharsets.UTF_8));
         DataBuffer buffer = exchange.getResponse().bufferFactory().wrap(bytes);
         return exchange.getResponse().writeWith(Mono.just(buffer));
     }
