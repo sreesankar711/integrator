@@ -45,6 +45,28 @@ management:
       probes:
         enabled: true
       show-details: always
+  otlp:
+    metrics:
+      export:
+        url: ${OTEL_EXPORTER_OTLP_METRICS_ENDPOINT:http://localhost:4318/v1/metrics}
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
+          transport: http
+    logging:
+      export:
+        otlp:
+          endpoint: ${OTEL_EXPORTER_OTLP_LOGS_ENDPOINT:http://localhost:4318/v1/logs}
+          transport: http
+  logging:
+    export:
+      otlp:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 1.0
 
 bootstrap:
   admin:
