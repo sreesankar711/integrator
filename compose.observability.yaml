@@ -1,0 +1,15 @@
+services:
+  grafana-otel-lgtm:
+    image: grafana/otel-lgtm:latest
+    container_name: grafana-otel-lgtm
+    ports:
+      - "3000:3000"
+      - "3200:3200"
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - grafana-otel-lgtm-data:/data
+    restart: unless-stopped
+
+volumes:
+  grafana-otel-lgtm-data:

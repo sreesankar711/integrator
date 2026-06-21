@@ -25,6 +25,18 @@ spring:
       port: 6379
       timeout: 2s
       connect-timeout: 2s
+  ai:
+    mcp:
+      server:
+        protocol: STATELESS
+        enabled: ${INTEGRATOR_MCP_ENABLED:true}
+        capabilities:
+          tool: true
+          resource: true
+          prompt: false
+          completion: false
+        stateless:
+          disallow-delete: true
 
 management:
   endpoints:
